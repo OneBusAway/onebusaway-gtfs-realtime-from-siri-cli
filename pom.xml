@@ -1,0 +1,68 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <artifactId>onebusaway</artifactId>
+    <groupId>org.onebusaway</groupId>
+    <version>1.1.2</version>
+  </parent>
+  <groupId>org.onebusaway</groupId>
+  <artifactId>onebusaway-gtfs-realtime-from-siri-cli</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>onebusaway-gtfs-realtime-from-siri-cli</name>
+  <description>Produce GTFS-realtime data from a SIRI data-stream</description>
+
+  <properties>
+    <onebusaway_siri_version>0.1.0-SNAPSHOT</onebusaway_siri_version>
+    <gtfs_realtime_api_version>0.0.1-SNAPSHOT</gtfs_realtime_api_version>
+  </properties>
+
+  <repositories>
+    <repository>
+      <id>public.onebusaway.org</id>
+      <url>http://nexus.onebusaway.org/content/groups/public/</url>
+    </repository>
+  </repositories>
+
+  <scm>
+    <connection>scm:svn:http://onebusaway.googlecode.com/svn/gtfs-realtime/onebusaway-gtfs-realtime-from-siri-cli/trunk</connection>
+    <developerConnection>scm:svn:https://onebusaway.googlecode.com/svn/gtfs-realtime/onebusaway-gtfs-realtime-from-siri-cli/trunk</developerConnection>
+    <url>http://code.google.com/p/onebusaway/source/browse/#svn/gtfs-realtime/onebusaway-gtfs-realtime-from-siri-cli/trunk</url>
+  </scm>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.onebusaway</groupId>
+      <artifactId>onebusaway-siri-jetty</artifactId>
+      <version>${onebusaway_siri_version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.onebusaway</groupId>
+      <artifactId>onebusaway-gtfs-realtime-api</artifactId>
+      <version>${gtfs_realtime_api_version}</version>
+    </dependency>
+    <dependency>
+      <groupId>commons-cli</groupId>
+      <artifactId>commons-cli</artifactId>
+      <version>1.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+      <version>1.5.6</version>
+    </dependency>
+
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.8.1</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>1.8.0</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>
