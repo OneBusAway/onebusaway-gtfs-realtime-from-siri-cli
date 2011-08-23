@@ -29,7 +29,7 @@ java -jar onebusaway-gtfs-realtime-from-siri-cli.jar [-args] request [request ..
 
 * Args
   
-  * <<<<-id value>>> - the client's SIRI participant id
+  * <<<-id value>>> - the client's SIRI participant id
   
   * <<<-clientUrl url>>> - the url your SIRI client publishes to a server in publish/subscribe
   
@@ -52,4 +52,4 @@ SIRI module type.  However, other options are available as well.  Here is a simp
 Url=http://host:port/path,ModuleType=VEHICLE_MONITORING
 +---+
   
-  For more info on SIRI requests, see {{{http://developer.onebusaway.org/modules/onebusaway-siri/${onebusaway_siri_version}/cli-request-spec.html}}}}
+  For more info on SIRI requests, see {{{http://developer.onebusaway.org/modules/onebusaway-siri/${onebusaway_siri_version}/cli-request-spec.html}}}
