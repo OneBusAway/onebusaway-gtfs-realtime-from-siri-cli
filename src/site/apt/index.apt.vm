@@ -52,4 +52,5 @@ SIRI module type.  However, other options are available as well.  Here is a simp
 Url=http://host:port/path,ModuleType=VEHICLE_MONITORING
 +---+
   
-  For more info on SIRI requests, see {{{http://developer.onebusaway.org/modules/onebusaway-siri/${onebusaway_siri_version}/cli-request-spec.html}}}
+  For more info on SIRI requests, see
+{{{http://developer.onebusaway.org/modules/onebusaway-siri/${onebusaway_siri_version}/cli-request-spec.html}the full documentation}}.
