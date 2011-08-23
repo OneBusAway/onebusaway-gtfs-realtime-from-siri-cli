@@ -1,0 +1,32 @@
+Description:
+  Command-line application that consumes SIRI VehicleMonitoring messages produces GTFS-realtime output files.
+  
+Usage:
+  [-args] request [request ...]
+
+Args:
+  -id value                       the client's SIRI participant id
+  -clientUrl url                  the url your SIRI client publishes to a server in publish/subscribe
+  -privateClientUrl url           the internal url your SIRI client will actually bind to, if specified (default=clientUrl)
+  -tripUpdatesPath path           write GTFS-realtime TripUpdates to the specified path
+  -vehiclePositionsPath path      write GTFS-realtime VehiclePositions to the specified path
+  -updateFrequency time           how often to update the GTFS-realtime output files, in seconds
+  -staleDataThreshold time        how long before a SIRI vehicle update is considered stale, in seconds
+  
+Request Examples:
+
+  Requests control the connections that are made to remote SIRI data sources.
+  At a minimum, it includes a url and a SIRI module type.  However, other
+  options are available as well.  Here is a simple example to get you started:
+ 
+    Url=http://host:port/path,ModuleType=VEHICLE_MONITORING
+  
+  For more info on SIRI requests, see:
+  
+    http://developer.onebusaway.org/modules/onebusaway-siri/${onebusaway_siri_version}/cli-request-spec.html
+     
+Full Documentation:
+
+    For full documentation on the onebusaway-gtfs-realtime-from-siri-cli, see:
+    
+    http://developer.onebusaway.org/modules/onebusaway-gtfs-realtime-from-siri-cli/${project.version}/

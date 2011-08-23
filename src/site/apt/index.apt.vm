@@ -1,15 +1,49 @@
-onebusaway-gtfs-realtime-from-siri
+onebusaway-gtfs-realtime-from-siri-cli
 
-  The {{{http://code.google.com/transit/realtime/}GTFS-realtime}} specification defines a standard for exchanging
-real-time public transit information in a machine-readable way.  The core of the specification is Protocol Buffer
-definition defining the various data types that make up a GTFS-realtime feed.
+  The <<<onebusaway-gtfs-realtime-from-siri-cli>>> application is designed to convert data in the
+{{{http://www.siri.org.uk/}SIRI}} formatinto the {{{http://code.google.com/transit/realtime/}GTFS-realtime}} format.
+Both standards describe methods for exchanging real-time public transit information in a machine-readable way.  SIRI is
+often used by transit agencies for exchanging operations-oriented data with internal systems, while GTFS-realtime is
+designed for exchanging rider-oriented data with external developers.
 
-  While Protocol Buffers are designed to be language agnostic, language-specific bindings are typically generated to
-read or write a buffer using a specific language.  We provide a simple Java library of the classes produced when the
-{{{http://code.google.com/transit/realtime/}GTFS-realtime}} protobuf is compiled for Java.
+  Specifically, the application subscribes to a SIRI endpoint, listens for Vehicle Monitoring messages, and produces
+GTFS-realtime trip updates and vehicle position feed data.  Both SIRI 1.0 and 1.3 are supported for input.  GTFS-realtime
+Feed information is written to file, where it can be hosted using your existing web infrastructure.
 
-  You can use the library in a number of ways:
+  Current SIRI Situation Exchange messages are not supported for producing GTFS-realtime alerts.  If you have a system
+that is actually producing SIRI-SX, we'd love to talk to you ({{{mailto:contact@onebusaway.org}contact@onebusaway.org}}.
 
-#set( $url = 'http://nexus.onebusaway.org/service/local/artifact/maven/content?r=public&g=org.onebusaway&a=onebusaway-gtfs-realtime-from-siri&v=' + ${currentVersion} )
+* Getting he Application
+  
+#set( $url = 'http://nexus.onebusaway.org/service/local/artifact/maven/content?r=public&g=org.onebusaway&a=onebusaway-gtfs-realtime-from-siri-cli&v=' + ${currentVersion} )
 
-  * Download the jar: {{{${url}}onebusaway-gtfs-realtime-from-siri.jar}}
+  * Download the jar: {{{${url}}onebusaway-gtfs-realtime-from-siri-cli.jar}}
+  
+* Usage
+
+  To run the application:
+  
++---+
+java -jar onebusaway-gtfs-realtime-from-siri-cli.jar [-args] request [request ...]
++---+
+
+* Args
+  
+  * <<<<-id value>>> - the client's SIRI participant id
+  * <<<-clientUrl url>>> - the url your SIRI client publishes to a server in publish/subscribe
+  * <<<-privateClientUrl url>>> - the internal url your SIRI client will actually bind to, if specified (default=clientUrl)
+  * <<<-tripUpdatesPath path>>> - write GTFS-realtime TripUpdates to the specified path
+  * <<<-vehiclePositionsPath path>>> - write GTFS-realtime VehiclePositions to the specified path
+  * <<<-updateFrequency time>>> - how often to update the GTFS-realtime output files, in seconds
+  * <<<-staleDataThreshold time>>> - how long before a SIRI vehicle update is considered stale, in seconds
+  
+* Request Examples
+
+  Requests control the connections that are made to remote SIRI data sources.  At a minimum, it includes a url and a
+SIRI module type.  However, other options are available as well.  Here is a simple example to get you started:
+ 
++---+
+Url=http://host:port/path,ModuleType=VEHICLE_MONITORING
++---+
+  
+  For more info on SIRI requests, see {{{http://developer.onebusaway.org/modules/onebusaway-siri/${onebusaway_siri_version}/cli-request-spec.html}}}

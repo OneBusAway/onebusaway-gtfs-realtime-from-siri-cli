@@ -15,7 +15,11 @@
  */
 package org.onebusaway.gtfs_realtime.siri;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -102,7 +106,24 @@ public class SiriToGtfsRealtimeMain {
   }
 
   private void printUsage() {
+    InputStream is = getClass().getResourceAsStream("usage.txt");
+    BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+    String line = null;
+    try {
+      while ((line = reader.readLine()) != null) {
+        System.err.println(line);
+      }
+    } catch (IOException ex) {
 
+    } finally {
+      if (reader != null) {
+        try {
+          reader.close();
+        } catch (IOException ex) {
+
+        }
+      }
+    }
   }
 
   private void configureClient(CommandLine cli, Injector injector) {
