@@ -11,7 +11,7 @@ GTFS-realtime trip updates and vehicle position feed data.  Both SIRI 1.0 and 1.
 Feed information is written to file, where it can be hosted using your existing web infrastructure.
 
   Current SIRI Situation Exchange messages are not supported for producing GTFS-realtime alerts.  If you have a system
-that is actually producing SIRI-SX, we'd love to talk to you ({{{mailto:contact@onebusaway.org}contact@onebusaway.org}}.
+that is actually producing SIRI-SX, we'd love to talk to you ({{{mailto:contact@onebusaway.org}contact@onebusaway.org}}).
 
 * Getting he Application
   
