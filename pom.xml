@@ -7,7 +7,7 @@
   </parent>
   <groupId>org.onebusaway</groupId>
   <artifactId>onebusaway-gtfs-realtime-from-siri-cli</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1-SNAPSHOT</version>
   <name>onebusaway-gtfs-realtime-from-siri-cli</name>
   <description>Produce GTFS-realtime data from a SIRI data-stream</description>
 
@@ -24,9 +24,9 @@
   </repositories>
 
   <scm>
-    <connection>scm:svn:http://onebusaway.googlecode.com/svn/gtfs-realtime/onebusaway-gtfs-realtime-from-siri-cli/tags/onebusaway-gtfs-realtime-from-siri-cli-1.0.0</connection>
-    <developerConnection>scm:svn:https://onebusaway.googlecode.com/svn/gtfs-realtime/onebusaway-gtfs-realtime-from-siri-cli/tags/onebusaway-gtfs-realtime-from-siri-cli-1.0.0</developerConnection>
-    <url>http://code.google.com/p/onebusaway/source/browse/#svn/gtfs-realtime/onebusaway-gtfs-realtime-from-siri-cli/tags/onebusaway-gtfs-realtime-from-siri-cli-1.0.0</url>
+    <connection>scm:svn:http://onebusaway.googlecode.com/svn/gtfs-realtime/onebusaway-gtfs-realtime-from-siri-cli/trunk</connection>
+    <developerConnection>scm:svn:https://onebusaway.googlecode.com/svn/gtfs-realtime/onebusaway-gtfs-realtime-from-siri-cli/trunk</developerConnection>
+    <url>http://code.google.com/p/onebusaway/source/browse/#svn/gtfs-realtime/onebusaway-gtfs-realtime-from-siri-cli/trunk</url>
   </scm>
 
   <distributionManagement>
