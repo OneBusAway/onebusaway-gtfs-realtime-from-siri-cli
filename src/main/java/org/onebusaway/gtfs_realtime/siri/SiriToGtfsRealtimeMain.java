@@ -28,6 +28,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.Parser;
 import org.apache.commons.cli.PosixParser;
+import org.onebusaway.cli.Daemonizer;
 import org.onebusaway.siri.core.SiriClient;
 import org.onebusaway.siri.core.SiriClientRequest;
 import org.onebusaway.siri.core.SiriClientRequestFactory;
@@ -76,8 +77,10 @@ public class SiriToGtfsRealtimeMain {
 
     Options options = new Options();
     buildOptions(options);
+    Daemonizer.buildOptions(options);
     Parser parser = new PosixParser();
     CommandLine cli = parser.parse(options, args);
+    Daemonizer.handleDaemonization(cli);
 
     List<Module> modules = new ArrayList<Module>();
     modules.addAll(SiriCoreModule.getModules());
