@@ -241,6 +241,6 @@ public class SiriToGtfsRealtimeServiceTest {
     assertEquals(GtfsRealtimeConstants.VERSION, header.getGtfsRealtimeVersion());
     assertEquals(Incrementality.FULL_DATASET, header.getIncrementality());
     assertEquals((double) System.currentTimeMillis(), header.getTimestamp(),
-        150);
+        350);
   }
 }
