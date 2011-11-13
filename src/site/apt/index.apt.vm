@@ -29,23 +29,23 @@ java -jar onebusaway-gtfs-realtime-from-siri-cli.jar [-args] request [request ..
 
 * Args
   
-  * <<<-id=value>>> - the client's SIRI participant id
+  * <<<--id=value>>> - the client's SIRI participant id
   
-  * <<<-clientUrl=url>>> - the url your SIRI client publishes to a server in publish/subscribe
+  * <<<--clientUrl=url>>> - the url your SIRI client publishes to a server in publish/subscribe
   
-  * <<<-privateClientUrl=url>>> - the internal url your SIRI client will actually bind to, if specified (default=clientUrl)
+  * <<<--privateClientUrl=url>>> - the internal url your SIRI client will actually bind to, if specified (default=clientUrl)
   
-  * <<<-tripUpdatesPath=path>>> - write GTFS-realtime TripUpdates to the specified path
+  * <<<--tripUpdatesPath=path>>> - write GTFS-realtime TripUpdates to the specified path
   
-  * <<<-tripUpdatesUrl=url>>> - share GTFS-realtime TripUpdates at the specified url
+  * <<<--tripUpdatesUrl=url>>> - share GTFS-realtime TripUpdates at the specified url
   
-  * <<<-vehiclePositionsPath=path>>> - write GTFS-realtime VehiclePositions to the specified path
+  * <<<--vehiclePositionsPath=path>>> - write GTFS-realtime VehiclePositions to the specified path
   
-  * <<<-vehiclePositionsUrl=url>>> - share GTFS-realtime VehiclePositions at the specified url
+  * <<<--vehiclePositionsUrl=url>>> - share GTFS-realtime VehiclePositions at the specified url
   
-  * <<<-updateFrequency time>>> - how often to update the GTFS-realtime output files, in seconds
+  * <<<--updateFrequency time>>> - how often to update the GTFS-realtime output files, in seconds
   
-  * <<<-staleDataThreshold time>>> - how long before a SIRI vehicle update is considered stale, in seconds
+  * <<<--staleDataThreshold time>>> - how long before a SIRI vehicle update is considered stale, in seconds
   
 * Request Examples
 
