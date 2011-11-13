@@ -12,8 +12,8 @@
   <description>Produce GTFS-realtime data from a SIRI data-stream</description>
 
   <properties>
-    <onebusaway_siri_version>1.0.0</onebusaway_siri_version>
-    <gtfs_realtime_api_version>1.0.0</gtfs_realtime_api_version>
+    <onebusaway_siri_version>1.0.2</onebusaway_siri_version>
+    <gtfs_realtime_api_version>1.0.1-SNAPSHOT</gtfs_realtime_api_version>
   </properties>
 
   <repositories>

@@ -67,6 +67,7 @@ import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
 import com.google.transit.realtime.GtfsRealtime.VehicleDescriptor;
 import com.google.transit.realtime.GtfsRealtime.VehiclePosition;
 import com.google.transit.realtime.GtfsRealtimeConstants;
+import com.google.transit.realtime.GtfsRealtimeOneBusAway;
 
 @Singleton
 public class SiriToGtfsRealtimeService {
@@ -105,9 +106,10 @@ public class SiriToGtfsRealtimeService {
   public void setClient(SiriClient client) {
     _client = client;
   }
-  
+
   @Inject
-  public void setScheduledExecutorService(@Named("SiriToGtfsRealtimeService") ScheduledExecutorService executor) {
+  public void setScheduledExecutorService(
+      @Named("SiriToGtfsRealtimeService") ScheduledExecutorService executor) {
     _executor = executor;
   }
 
@@ -258,24 +260,10 @@ public class SiriToGtfsRealtimeService {
 
       MonitoredVehicleJourney mvj = activity.getMonitoredVehicleJourney();
 
-      Duration delay = mvj.getDelay();
-      if (delay == null)
+      Duration delayDuration = mvj.getDelay();
+      if (delayDuration == null)
         continue;
-
-      MonitoredCallStructure mc = mvj.getMonitoredCall();
-      if (mc == null)
-        continue;
-
-      StopPointRefStructure stopPointRef = mc.getStopPointRef();
-      if (stopPointRef == null || stopPointRef.getValue() == null)
-        continue;
-
-      StopTimeEvent.Builder stopTimeEvent = StopTimeEvent.newBuilder();
-      stopTimeEvent.setDelay((int) (delay.getTimeInMillis(durationOffset) / 1000));
-
-      StopTimeUpdate.Builder stopTimeUpdate = StopTimeUpdate.newBuilder();
-      stopTimeUpdate.setDeparture(stopTimeEvent);
-      stopTimeUpdate.setStopId(stopPointRef.getValue());
+      int delayInSeconds = (int) (delayDuration.getTimeInMillis(durationOffset) / 1000);
 
       TripUpdate.Builder tripUpdate = TripUpdate.newBuilder();
 
@@ -285,7 +273,8 @@ public class SiriToGtfsRealtimeService {
       VehicleDescriptor vd = getKeyAsVehicleDescriptor(key);
       tripUpdate.setVehicle(vd);
 
-      tripUpdate.addStopTimeUpdate(stopTimeUpdate);
+      applyStopSpecificDelayToTripUpdateIfApplicable(mvj, delayInSeconds, tripUpdate);
+      tripUpdate.setExtension(GtfsRealtimeOneBusAway.delay, delayInSeconds);
 
       FeedEntity.Builder entity = FeedEntity.newBuilder();
       entity.setId(getNextFeedEntityId());
@@ -303,6 +292,27 @@ public class SiriToGtfsRealtimeService {
         _tripUpdatesFile));
     message.writeTo(out);
     out.close();
+  }
+
+  private void applyStopSpecificDelayToTripUpdateIfApplicable(
+      MonitoredVehicleJourney mvj, int delayInSeconds, TripUpdate.Builder tripUpdate) {
+    MonitoredCallStructure mc = mvj.getMonitoredCall();
+    if (mc == null) {
+      return;
+    }
+
+    StopPointRefStructure stopPointRef = mc.getStopPointRef();
+    if (stopPointRef == null || stopPointRef.getValue() == null) {
+      return;
+    }
+
+    StopTimeEvent.Builder stopTimeEvent = StopTimeEvent.newBuilder();
+    stopTimeEvent.setDelay(delayInSeconds);
+
+    StopTimeUpdate.Builder stopTimeUpdate = StopTimeUpdate.newBuilder();
+    stopTimeUpdate.setDeparture(stopTimeEvent);
+    stopTimeUpdate.setStopId(stopPointRef.getValue());
+    tripUpdate.addStopTimeUpdate(stopTimeUpdate);
   }
 
   private void writeVehiclePositions() throws IOException {
