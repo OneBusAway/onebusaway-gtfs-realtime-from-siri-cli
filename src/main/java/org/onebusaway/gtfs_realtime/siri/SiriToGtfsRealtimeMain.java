@@ -88,10 +88,12 @@ public class SiriToGtfsRealtimeMain {
     CommandLine cli = parser.parse(options, args);
     Daemonizer.handleDaemonization(cli);
 
+    ensureMinimalArgs(cli);
+
     List<Module> modules = new ArrayList<Module>();
     modules.addAll(SiriCoreModule.getModules());
     modules.add(new SiriJettyModule());
-    modules.add(new SiriToGtfsRealtimeModule());
+    modules.add(createModule(cli));
     Injector injector = Guice.createInjector(modules);
 
     configureClient(cli, injector);
@@ -101,6 +103,20 @@ public class SiriToGtfsRealtimeMain {
      */
     LifecycleService lifecycleService = injector.getInstance(LifecycleService.class);
     lifecycleService.start();
+  }
+
+  private SiriToGtfsRealtimeModule createModule(CommandLine cli)
+      throws MalformedURLException {
+    SiriToGtfsRealtimeModule module = new SiriToGtfsRealtimeModule();
+
+    if (cli.hasOption(ARG_TRIP_UPDATES_URL)) {
+      module.setTripUpdatesUrl(new URL(cli.getOptionValue(ARG_TRIP_UPDATES_URL)));
+    }
+    if (cli.hasOption(ARG_VEHICLE_POSITIONS_URL)) {
+      module.setVehiclePositionsUrl(new URL(
+          cli.getOptionValue(ARG_VEHICLE_POSITIONS_URL)));
+    }
+    return module;
   }
 
   protected void buildOptions(Options options) {
@@ -137,6 +153,28 @@ public class SiriToGtfsRealtimeMain {
     }
   }
 
+  private void ensureMinimalArgs(CommandLine cli) {
+
+    boolean hasShareUrls = cli.hasOption(ARG_TRIP_UPDATES_URL)
+        || cli.hasOption(ARG_VEHICLE_POSITIONS_URL);
+    boolean hasSharePaths = cli.hasOption(ARG_TRIP_UPDATES_PATH)
+        || cli.hasOption(ARG_VEHICLE_POSITIONS_PATH);
+
+    if (!(hasShareUrls || hasSharePaths)) {
+      System.err.println("ERROR: You did not specify a trip updates or vehicle positions output file or url.");
+      printUsage();
+      System.exit(-1);
+    }
+
+    String[] args = cli.getArgs();
+
+    if (args.length == 0) {
+      System.err.println("ERROR: You did not specify any SIRI endpoint URLs to connect to!");
+      printUsage();
+      System.exit(-1);
+    }
+  }
+
   private void configureClient(CommandLine cli, Injector injector)
       throws MalformedURLException {
 
@@ -152,24 +190,12 @@ public class SiriToGtfsRealtimeMain {
     if (cli.hasOption(ARG_PRIVATE_CLIENT_URL))
       client.setPrivateUrl(cli.getOptionValue(ARG_PRIVATE_CLIENT_URL));
 
-    boolean hasShareUrls = cli.hasOption(ARG_TRIP_UPDATES_URL)
-        || cli.hasOption(ARG_VEHICLE_POSITIONS_URL);
-    boolean hasSharePaths = cli.hasOption(ARG_TRIP_UPDATES_PATH)
-        || cli.hasOption(ARG_VEHICLE_POSITIONS_PATH);
-
-    if (!(hasShareUrls || hasSharePaths)) {
-      System.err.println("ERROR: You did not specify a trip updates or vehicle positions output file or url.");
-      printUsage();
-      System.exit(-1);
-    }
-
     if (cli.hasOption(ARG_TRIP_UPDATES_PATH)) {
       service.setTripUpdatesFile(new File(
           cli.getOptionValue(ARG_TRIP_UPDATES_PATH)));
     }
     if (cli.hasOption(ARG_TRIP_UPDATES_URL)) {
-      service.setTripUpdatesUrl(new URL(
-          cli.getOptionValue(ARG_TRIP_UPDATES_URL)));
+      injector.getInstance(TripUpdatesServlet.class);
     }
 
     if (cli.hasOption(ARG_VEHICLE_POSITIONS_PATH)) {
@@ -177,8 +203,7 @@ public class SiriToGtfsRealtimeMain {
           cli.getOptionValue(ARG_VEHICLE_POSITIONS_PATH)));
     }
     if (cli.hasOption(ARG_VEHICLE_POSITIONS_URL)) {
-      service.setVehiclePositionsUrl(new URL(
-          cli.getOptionValue(ARG_VEHICLE_POSITIONS_URL)));
+      injector.getInstance(VehiclePositionsServlet.class);
     }
 
     if (cli.hasOption(ARG_UPDATE_FREQUENCY)) {

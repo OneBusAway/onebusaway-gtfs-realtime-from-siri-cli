@@ -15,6 +15,7 @@
  */
 package org.onebusaway.gtfs_realtime.siri;
 
+import java.net.URL;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -23,11 +24,34 @@ import com.google.inject.name.Names;
 
 public class SiriToGtfsRealtimeModule extends AbstractModule {
 
+  private URL _tripUpdatesUrl;
+
+  private URL _vehiclePositionsUrl;
+
+  public void setTripUpdatesUrl(URL tripUpdatesUrl) {
+    _tripUpdatesUrl = tripUpdatesUrl;
+  }
+
+  public void setVehiclePositionsUrl(URL vehiclePositionsUrl) {
+    _vehiclePositionsUrl = vehiclePositionsUrl;
+  }
+
   @Override
   protected void configure() {
     bind(SiriToGtfsRealtimeService.class);
     bind(ScheduledExecutorService.class).annotatedWith(
         Names.named("SiriToGtfsRealtimeService")).toInstance(
         Executors.newSingleThreadScheduledExecutor());
+    if (_tripUpdatesUrl != null) {
+      bind(URL.class).annotatedWith(Names.named("tripUpdatesUrl")).toInstance(
+          _tripUpdatesUrl);
+      bind(TripUpdatesServlet.class);
+    }
+    if (_vehiclePositionsUrl != null) {
+      bind(URL.class).annotatedWith(Names.named("vehiclePositionsUrl")).toInstance(
+          _vehiclePositionsUrl);
+      bind(VehiclePositionsServlet.class);
+    }
   }
+
 }
