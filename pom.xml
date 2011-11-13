@@ -54,7 +54,7 @@
       <artifactId>commons-cli</artifactId>
       <version>1.2</version>
     </dependency>
-    <!-- Another daemonization option -->
+    <!-- For daemonization support -->
     <dependency>
       <groupId>org.onebusaway</groupId>
       <artifactId>onebusaway-cli</artifactId>

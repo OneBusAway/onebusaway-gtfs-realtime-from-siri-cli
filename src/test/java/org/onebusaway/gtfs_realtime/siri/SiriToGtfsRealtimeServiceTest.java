@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.URL;
 import java.util.Date;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -64,6 +65,8 @@ public class SiriToGtfsRealtimeServiceTest {
   private SiriClient _client;
   private File _tripUpdatesFile;
   private File _vehiclePositionsFile;
+  private URL _tripUpdatesUrl;
+  private URL _vehiclePositionsUrl;
 
   @Before
   public void setup() throws IOException {
@@ -84,6 +87,11 @@ public class SiriToGtfsRealtimeServiceTest {
 
     _service.setTripUpdatesFile(_tripUpdatesFile);
     _service.setVehiclePositionsFile(_vehiclePositionsFile);
+
+    _tripUpdatesUrl = new URL("http://localhost:9999/trip-updates");
+    _service.setTripUpdatesUrl(_tripUpdatesUrl);
+    _vehiclePositionsUrl = new URL("http://localhost:9999/vehicle-positions");
+    _service.setVehiclePositionsUrl(_vehiclePositionsUrl);
   }
 
   @After
@@ -93,7 +101,7 @@ public class SiriToGtfsRealtimeServiceTest {
   }
 
   @Test
-  public void test() throws IOException, InterruptedException {
+  public void test() throws Exception {
 
     _service.setUpdateFrequency(37);
     _service.setStaleDataThreshold(2);
@@ -120,8 +128,16 @@ public class SiriToGtfsRealtimeServiceTest {
     verifyHeader(tripUpdatesFeed);
     assertEquals(0, tripUpdatesFeed.getEntityCount());
 
+    tripUpdatesFeed = FeedMessage.parseFrom(_tripUpdatesUrl.openStream());
+    verifyHeader(tripUpdatesFeed);
+    assertEquals(0, tripUpdatesFeed.getEntityCount());
+
     FeedMessage vehiclePositionFeed = FeedMessage.parseFrom(new FileInputStream(
         _vehiclePositionsFile));
+    verifyHeader(vehiclePositionFeed);
+    assertEquals(0, vehiclePositionFeed.getEntityCount());
+
+    vehiclePositionFeed = FeedMessage.parseFrom(_vehiclePositionsUrl.openStream());
     verifyHeader(vehiclePositionFeed);
     assertEquals(0, vehiclePositionFeed.getEntityCount());
 
@@ -177,23 +193,26 @@ public class SiriToGtfsRealtimeServiceTest {
     assertFalse(tripEntity.hasAlert());
     assertFalse(tripEntity.hasVehicle());
     assertFalse(tripEntity.getIsDeleted());
-    
+
     TripUpdate tripUpdate = tripEntity.getTripUpdate();
     TripDescriptor trip = tripUpdate.getTrip();
     assertEquals("MyFavoriteTrip", trip.getTripId());
-    
+
     VehicleDescriptor vehicleDescriptor = tripUpdate.getVehicle();
     assertEquals("MyFavoriteBus", vehicleDescriptor.getId());
-    
+
     assertEquals(1, tripUpdate.getStopTimeUpdateCount());
     StopTimeUpdate stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
     assertEquals("MyFavoriteStop", stopTimeUpdate.getStopId());
     assertFalse(stopTimeUpdate.hasArrival());
-    
+
     StopTimeEvent stopTimeEvent = stopTimeUpdate.getDeparture();
     assertEquals(5 * 60, stopTimeEvent.getDelay());
     assertEquals(0, stopTimeEvent.getTime());
     assertEquals(0, stopTimeEvent.getUncertainty());
+
+    FeedMessage tripUpdatesFeedFromUrl = FeedMessage.parseFrom(_tripUpdatesUrl.openStream());
+    assertEquals(tripUpdatesFeed, tripUpdatesFeedFromUrl);
 
     vehiclePositionFeed = FeedMessage.parseFrom(new FileInputStream(
         _vehiclePositionsFile));
@@ -212,6 +231,9 @@ public class SiriToGtfsRealtimeServiceTest {
     vehicleDescriptor = vehiclePosition.getVehicle();
     assertEquals("MyFavoriteBus", vehicleDescriptor.getId());
 
+    FeedMessage vehiclePositionFeedFromUrl = FeedMessage.parseFrom(_vehiclePositionsUrl.openStream());
+    assertEquals(vehiclePositionFeed, vehiclePositionFeedFromUrl);
+
     /**
      * Finally, we wait for a few seconds (a little bit more than the stale data
      * threshold)
@@ -229,11 +251,16 @@ public class SiriToGtfsRealtimeServiceTest {
     verifyHeader(tripUpdatesFeed);
     assertEquals(0, tripUpdatesFeed.getEntityCount());
 
+    tripUpdatesFeedFromUrl = FeedMessage.parseFrom(_tripUpdatesUrl.openStream());
+    assertEquals(tripUpdatesFeed, tripUpdatesFeedFromUrl);
+
     vehiclePositionFeed = FeedMessage.parseFrom(new FileInputStream(
         _vehiclePositionsFile));
     verifyHeader(vehiclePositionFeed);
     assertEquals(0, vehiclePositionFeed.getEntityCount());
 
+    vehiclePositionFeedFromUrl = FeedMessage.parseFrom(_vehiclePositionsUrl.openStream());
+    assertEquals(vehiclePositionFeed, vehiclePositionFeedFromUrl);
   }
 
   private void verifyHeader(FeedMessage feed) {

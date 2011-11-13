@@ -19,6 +19,7 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -34,8 +35,16 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.xml.datatype.Duration;
 
+import org.mortbay.jetty.HttpStatus;
+import org.mortbay.jetty.Server;
+import org.mortbay.jetty.servlet.Context;
+import org.mortbay.jetty.servlet.ServletHolder;
 import org.onebusaway.siri.core.SiriChannelInfo;
 import org.onebusaway.siri.core.SiriClient;
 import org.onebusaway.siri.core.SiriClientRequest;
@@ -74,6 +83,8 @@ public class SiriToGtfsRealtimeService {
 
   private static Logger _log = LoggerFactory.getLogger(SiriToGtfsRealtimeService.class);
 
+  private static final String CONTENT_TYPE = "application/x-google-protobuf";
+
   private ScheduledExecutorService _executor;
 
   private SiriClient _client;
@@ -92,6 +103,10 @@ public class SiriToGtfsRealtimeService {
 
   private File _vehiclePositionsFile;
 
+  private URL _tripUpdatesUrl;
+
+  private URL _vehiclePositionsUrl;
+
   /**
    * How often we update the output files, in seconds
    */
@@ -101,6 +116,14 @@ public class SiriToGtfsRealtimeService {
    * Time, in seconds, after which a vehicle update is considered stale
    */
   private int _staleDataThreshold = 5 * 60;
+
+  private Server _server;
+
+  private volatile FeedMessage _tripUpdatesMessage = createFeedMessageBuilderWithHeader(
+      System.currentTimeMillis()).build();
+
+  private volatile FeedMessage _vehiclePositionsMessage = createFeedMessageBuilderWithHeader(
+      System.currentTimeMillis()).build();
 
   @Inject
   public void setClient(SiriClient client) {
@@ -121,8 +144,16 @@ public class SiriToGtfsRealtimeService {
     _tripUpdatesFile = tripUpdatesFile;
   }
 
+  public void setTripUpdatesUrl(URL tripUpdatesUrl) {
+    _tripUpdatesUrl = tripUpdatesUrl;
+  }
+
   public void setVehiclePositionsFile(File vehiclePositionsFile) {
     _vehiclePositionsFile = vehiclePositionsFile;
+  }
+
+  public void setVehiclePositionsUrl(URL vehiclePositionsUrl) {
+    _vehiclePositionsUrl = vehiclePositionsUrl;
   }
 
   /**
@@ -141,7 +172,16 @@ public class SiriToGtfsRealtimeService {
   }
 
   @PostConstruct
-  public void start() {
+  public void start() throws Exception {
+
+    if (_tripUpdatesUrl != null || _vehiclePositionsUrl != null) {
+      int port = getPortForShareUrls();
+      _server = new Server(port);
+      Context context = new Context(_server, "/", Context.SESSIONS);
+      context.addServlet(new ServletHolder(new GtfsRealtimeServlet()), "/*");
+      _server.start();
+    }
+
     _executor.scheduleAtFixedRate(new SiriToGtfsRealtimeQueueProcessor(), 0,
         _updateFrequency, TimeUnit.SECONDS);
 
@@ -152,14 +192,34 @@ public class SiriToGtfsRealtimeService {
   }
 
   @PreDestroy
-  public void stop() {
+  public void stop() throws Exception {
     _client.removeServiceDeliveryHandler(_serviceDeliveryHandler);
     _executor.shutdownNow();
+    if (_server != null) {
+      _server.stop();
+    }
   }
 
   /****
    * Private Methods
    ****/
+
+  private int getPortForShareUrls() {
+    List<URL> urls = new ArrayList<URL>();
+    if (_tripUpdatesUrl != null)
+      urls.add(_tripUpdatesUrl);
+    if (_vehiclePositionsUrl != null)
+      urls.add(_vehiclePositionsUrl);
+    if (urls.isEmpty())
+      throw new IllegalStateException("no share urls specified");
+    int port = urls.get(0).getPort();
+    for (int i = 1; i < urls.size(); i++) {
+      if (port != urls.get(i).getPort())
+        throw new IllegalStateException(
+            "Cannot share URLs with different ports");
+    }
+    return port;
+  }
 
   private void processQueue() throws IOException {
 
@@ -234,11 +294,13 @@ public class SiriToGtfsRealtimeService {
 
   private void writeOutput() throws IOException {
 
-    if (_tripUpdatesFile != null)
+    if (!(_tripUpdatesFile == null && _tripUpdatesUrl == null)) {
       writeTripUpdates();
+    }
 
-    if (_vehiclePositionsFile != null)
+    if (!(_vehiclePositionsFile == null && _vehiclePositionsUrl == null)) {
       writeVehiclePositions();
+    }
   }
 
   private void writeTripUpdates() throws IOException {
@@ -273,7 +335,8 @@ public class SiriToGtfsRealtimeService {
       VehicleDescriptor vd = getKeyAsVehicleDescriptor(key);
       tripUpdate.setVehicle(vd);
 
-      applyStopSpecificDelayToTripUpdateIfApplicable(mvj, delayInSeconds, tripUpdate);
+      applyStopSpecificDelayToTripUpdateIfApplicable(mvj, delayInSeconds,
+          tripUpdate);
       tripUpdate.setExtension(GtfsRealtimeOneBusAway.delay, delayInSeconds);
 
       FeedEntity.Builder entity = FeedEntity.newBuilder();
@@ -288,14 +351,20 @@ public class SiriToGtfsRealtimeService {
     /**
      * Write the output to a file
      */
-    BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(
-        _tripUpdatesFile));
-    message.writeTo(out);
-    out.close();
+    if (_tripUpdatesFile != null) {
+      BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(
+          _tripUpdatesFile));
+      message.writeTo(out);
+      out.close();
+    }
+    if (_tripUpdatesUrl != null) {
+      _tripUpdatesMessage = message;
+    }
   }
 
   private void applyStopSpecificDelayToTripUpdateIfApplicable(
-      MonitoredVehicleJourney mvj, int delayInSeconds, TripUpdate.Builder tripUpdate) {
+      MonitoredVehicleJourney mvj, int delayInSeconds,
+      TripUpdate.Builder tripUpdate) {
     MonitoredCallStructure mc = mvj.getMonitoredCall();
     if (mc == null) {
       return;
@@ -364,27 +433,19 @@ public class SiriToGtfsRealtimeService {
 
     FeedMessage message = feedMessageBuilder.build();
 
-    BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(
-        _vehiclePositionsFile));
-    message.writeTo(out);
-    out.close();
+    if (_vehiclePositionsFile != null) {
+      BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(
+          _vehiclePositionsFile));
+      message.writeTo(out);
+      out.close();
+    }
+    if (_vehiclePositionsUrl != null) {
+      _vehiclePositionsMessage = message;
+    }
   }
 
   private boolean isDataStale(VehicleData data, long currentTime) {
     return data.getTimestamp() + _staleDataThreshold * 1000 < currentTime;
-  }
-
-  private FeedMessage.Builder createFeedMessageBuilderWithHeader(
-      long feedTimestamp) {
-
-    FeedHeader.Builder header = FeedHeader.newBuilder();
-    header.setTimestamp(feedTimestamp);
-    header.setIncrementality(Incrementality.FULL_DATASET);
-    header.setGtfsRealtimeVersion(GtfsRealtimeConstants.VERSION);
-
-    FeedMessage.Builder feedMessageBuilder = FeedMessage.newBuilder();
-    feedMessageBuilder.setHeader(header);
-    return feedMessageBuilder;
   }
 
   private String getNextFeedEntityId() {
@@ -407,6 +468,19 @@ public class SiriToGtfsRealtimeService {
     VehicleDescriptor.Builder vd = VehicleDescriptor.newBuilder();
     vd.setId(key.getVehicleId());
     return vd.build();
+  }
+
+  private static FeedMessage.Builder createFeedMessageBuilderWithHeader(
+      long feedTimestamp) {
+
+    FeedHeader.Builder header = FeedHeader.newBuilder();
+    header.setTimestamp(feedTimestamp);
+    header.setIncrementality(Incrementality.FULL_DATASET);
+    header.setGtfsRealtimeVersion(GtfsRealtimeConstants.VERSION);
+
+    FeedMessage.Builder feedMessageBuilder = FeedMessage.newBuilder();
+    feedMessageBuilder.setHeader(header);
+    return feedMessageBuilder;
   }
 
   /****
@@ -435,4 +509,34 @@ public class SiriToGtfsRealtimeService {
     }
   }
 
+  private class GtfsRealtimeServlet extends HttpServlet {
+
+    private static final long serialVersionUID = 1L;
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+        throws ServletException, IOException {
+      String uri = req.getRequestURI();
+      boolean debug = req.getParameter("debug") != null;
+      if (_tripUpdatesUrl != null && _tripUpdatesUrl.getPath().equals(uri)) {
+        if (debug) {
+          resp.getWriter().print(_tripUpdatesMessage);
+        } else {
+          resp.setContentType(CONTENT_TYPE);
+          _tripUpdatesMessage.writeTo(resp.getOutputStream());
+        }
+      } else if (_vehiclePositionsUrl != null
+          && _vehiclePositionsUrl.getPath().equals(uri)) {
+        if (debug) {
+          resp.getWriter().print(_vehiclePositionsMessage);
+        } else {
+          resp.setContentType(CONTENT_TYPE);
+          _vehiclePositionsMessage.writeTo(resp.getOutputStream());
+        }
+      } else {
+        resp.setStatus(HttpStatus.ORDINAL_404_Not_Found);
+      }
+
+    }
+  }
 }

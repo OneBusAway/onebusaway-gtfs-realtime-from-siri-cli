@@ -20,6 +20,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +59,11 @@ public class SiriToGtfsRealtimeMain {
 
   private static final String ARG_TRIP_UPDATES_PATH = "tripUpdatesPath";
 
+  private static final String ARG_TRIP_UPDATES_URL = "tripUpdatesUrl";
+
   private static final String ARG_VEHICLE_POSITIONS_PATH = "vehiclePositionsPath";
+
+  private static final String ARG_VEHICLE_POSITIONS_URL = "vehiclePositionsUrl";
 
   private static final String ARG_UPDATE_FREQUENCY = "updateFrequency";
 
@@ -102,8 +108,10 @@ public class SiriToGtfsRealtimeMain {
     options.addOption(ARG_CLIENT_URL, true, "siri client url");
     options.addOption(ARG_PRIVATE_CLIENT_URL, true, "siri private client url");
     options.addOption(ARG_TRIP_UPDATES_PATH, true, "trip updates path");
+    options.addOption(ARG_TRIP_UPDATES_URL, true, "trip updates url");
     options.addOption(ARG_VEHICLE_POSITIONS_PATH, true,
         "vehicle locations path");
+    options.addOption(ARG_VEHICLE_POSITIONS_URL, true, "vehicle locations url");
     options.addOption(ARG_UPDATE_FREQUENCY, true, "update frequency");
     options.addOption(ARG_STALE_DATA_THRESHOLD, true, "stale data threshold");
   }
@@ -129,7 +137,8 @@ public class SiriToGtfsRealtimeMain {
     }
   }
 
-  private void configureClient(CommandLine cli, Injector injector) {
+  private void configureClient(CommandLine cli, Injector injector)
+      throws MalformedURLException {
 
     SiriClient client = injector.getInstance(SiriClient.class);
     SiriToGtfsRealtimeService service = injector.getInstance(SiriToGtfsRealtimeService.class);
@@ -143,19 +152,34 @@ public class SiriToGtfsRealtimeMain {
     if (cli.hasOption(ARG_PRIVATE_CLIENT_URL))
       client.setPrivateUrl(cli.getOptionValue(ARG_PRIVATE_CLIENT_URL));
 
-    if (!(cli.hasOption(ARG_TRIP_UPDATES_PATH) || cli.hasOption(ARG_VEHICLE_POSITIONS_PATH))) {
-      System.err.println("ERROR: You did not specify a trip updates or vehicle positions output file.");
+    boolean hasShareUrls = cli.hasOption(ARG_TRIP_UPDATES_URL)
+        || cli.hasOption(ARG_VEHICLE_POSITIONS_URL);
+    boolean hasSharePaths = cli.hasOption(ARG_TRIP_UPDATES_PATH)
+        || cli.hasOption(ARG_VEHICLE_POSITIONS_PATH);
+
+    if (!(hasShareUrls || hasSharePaths)) {
+      System.err.println("ERROR: You did not specify a trip updates or vehicle positions output file or url.");
       printUsage();
       System.exit(-1);
     }
 
-    if (cli.hasOption(ARG_TRIP_UPDATES_PATH))
+    if (cli.hasOption(ARG_TRIP_UPDATES_PATH)) {
       service.setTripUpdatesFile(new File(
           cli.getOptionValue(ARG_TRIP_UPDATES_PATH)));
+    }
+    if (cli.hasOption(ARG_TRIP_UPDATES_URL)) {
+      service.setTripUpdatesUrl(new URL(
+          cli.getOptionValue(ARG_TRIP_UPDATES_URL)));
+    }
 
-    if (cli.hasOption(ARG_VEHICLE_POSITIONS_PATH))
+    if (cli.hasOption(ARG_VEHICLE_POSITIONS_PATH)) {
       service.setVehiclePositionsFile(new File(
           cli.getOptionValue(ARG_VEHICLE_POSITIONS_PATH)));
+    }
+    if (cli.hasOption(ARG_VEHICLE_POSITIONS_URL)) {
+      service.setVehiclePositionsUrl(new URL(
+          cli.getOptionValue(ARG_VEHICLE_POSITIONS_URL)));
+    }
 
     if (cli.hasOption(ARG_UPDATE_FREQUENCY)) {
       int updateFrequency = Integer.parseInt(cli.getOptionValue(ARG_UPDATE_FREQUENCY));
