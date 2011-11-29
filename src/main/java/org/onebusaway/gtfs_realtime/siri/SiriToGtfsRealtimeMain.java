@@ -69,8 +69,10 @@ public class SiriToGtfsRealtimeMain {
   private static final String ARG_UPDATE_FREQUENCY = "updateFrequency";
 
   private static final String ARG_STALE_DATA_THRESHOLD = "staleDataThreshold";
-  
+
   private static final String ARG_LOG_RAW_XML = "logRawXml";
+
+  private static final String ARG_FORMAT_OUTPUT_XML = "formatOutputXml";
 
   public static void main(String[] args) {
     try {
@@ -134,6 +136,7 @@ public class SiriToGtfsRealtimeMain {
     options.addOption(ARG_UPDATE_FREQUENCY, true, "update frequency");
     options.addOption(ARG_STALE_DATA_THRESHOLD, true, "stale data threshold");
     options.addOption(ARG_LOG_RAW_XML, true, "log raw xml");
+    options.addOption(ARG_FORMAT_OUTPUT_XML, false, "format output xml");
   }
 
   private void printUsage() {
@@ -219,12 +222,14 @@ public class SiriToGtfsRealtimeMain {
       int staleDataThreshold = Integer.parseInt(cli.getOptionValue(ARG_STALE_DATA_THRESHOLD));
       service.setStaleDataThreshold(staleDataThreshold);
     }
-    
+
     if (cli.hasOption(ARG_LOG_RAW_XML)) {
       String value = cli.getOptionValue(ARG_LOG_RAW_XML);
       ELogRawXmlType type = ELogRawXmlType.valueOf(value.toUpperCase());
       client.setLogRawXmlType(type);
     }
+
+    client.setFormatOutputXmlByDefault(cli.hasOption(ARG_FORMAT_OUTPUT_XML));
 
     String[] args = cli.getArgs();
 
