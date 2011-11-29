@@ -36,6 +36,7 @@ import org.onebusaway.siri.core.SiriClientRequest;
 import org.onebusaway.siri.core.SiriClientRequestFactory;
 import org.onebusaway.siri.core.SiriCoreModule;
 import org.onebusaway.siri.core.SiriLibrary;
+import org.onebusaway.siri.core.SiriCommon.ELogRawXmlType;
 import org.onebusaway.siri.core.exceptions.SiriUnknownVersionException;
 import org.onebusaway.siri.core.guice.LifecycleService;
 import org.onebusaway.siri.core.versioning.ESiriVersion;
@@ -68,6 +69,8 @@ public class SiriToGtfsRealtimeMain {
   private static final String ARG_UPDATE_FREQUENCY = "updateFrequency";
 
   private static final String ARG_STALE_DATA_THRESHOLD = "staleDataThreshold";
+  
+  private static final String ARG_LOG_RAW_XML = "logRawXml";
 
   public static void main(String[] args) {
     try {
@@ -130,6 +133,7 @@ public class SiriToGtfsRealtimeMain {
     options.addOption(ARG_VEHICLE_POSITIONS_URL, true, "vehicle locations url");
     options.addOption(ARG_UPDATE_FREQUENCY, true, "update frequency");
     options.addOption(ARG_STALE_DATA_THRESHOLD, true, "stale data threshold");
+    options.addOption(ARG_LOG_RAW_XML, true, "log raw xml");
   }
 
   private void printUsage() {
@@ -214,6 +218,12 @@ public class SiriToGtfsRealtimeMain {
     if (cli.hasOption(ARG_STALE_DATA_THRESHOLD)) {
       int staleDataThreshold = Integer.parseInt(cli.getOptionValue(ARG_STALE_DATA_THRESHOLD));
       service.setStaleDataThreshold(staleDataThreshold);
+    }
+    
+    if (cli.hasOption(ARG_LOG_RAW_XML)) {
+      String value = cli.getOptionValue(ARG_LOG_RAW_XML);
+      ELogRawXmlType type = ELogRawXmlType.valueOf(value.toUpperCase());
+      client.setLogRawXmlType(type);
     }
 
     String[] args = cli.getArgs();

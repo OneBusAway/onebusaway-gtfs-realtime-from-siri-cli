@@ -14,6 +14,9 @@ Args:
   --vehiclePositionsUrl=url        share GTFS-realtime VehiclePositions at the specified URL
   --updateFrequency=time           how often to update the GTFS-realtime output files, in seconds
   --staleDataThreshold=time        how long before a SIRI vehicle update is considered stale, in seconds
+  --logRawXml=...                  If specified, indicates how raw SIRI XML should be logged to the console.
+                                   Valid values are "NONE" (the default), "DATA", "CONTROL", and "ALL".
+  
   
 Request Examples:
 
