@@ -67,10 +67,11 @@ JAVA="${JAVA:-java}"
 PID_FILE="/var/run/${NAME}.pid"
 LOCK_FILE="/var/lock/subsys/${NAME}"
 
+JVM_ARGS="${JVM_ARGS:-}"
 CLI_ARGS="${CLI_ARGS:-}"
 
 # Define th command to launch the application
-OBA_CONVERTER_CMD="java -jar ${JAR_FILE} -daemonize -pidFile ${PID_FILE} -outputFile \"&2\" -errorFile ${LOG_FILE} ${CLI_ARGS}" 
+OBA_CONVERTER_CMD="${JAVA} ${JVM_ARGS} -jar ${JAR_FILE} -daemonize -pidFile ${PID_FILE} -outputFile \"&2\" -errorFile ${LOG_FILE} ${CLI_ARGS}" 
 
 RETVAL="0"
 
