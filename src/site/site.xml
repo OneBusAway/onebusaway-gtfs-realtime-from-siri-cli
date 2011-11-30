@@ -25,9 +25,10 @@
       <!-- Google Analytics - End -->
     </head>
     <menu name="Introduction">
-      <item name="About" href="/index.html" />
+      <item name="About" href="/index.html" />      
       <item name="Release Notes" href="/release-notes.html" />
       <item name="API Javadoc" href="/apidocs/index.html" />
+      <item name="RPM + Linux Service" href="/rpm.html" />
     </menu>
     <menu ref="reports" />
   </body>
