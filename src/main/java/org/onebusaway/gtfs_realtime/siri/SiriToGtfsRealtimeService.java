@@ -441,6 +441,7 @@ public class SiriToGtfsRealtimeService {
     @Override
     public void handleServiceDelivery(SiriChannelInfo channelInfo,
         ServiceDelivery serviceDelivery) {
+      _log.debug("delivery: channel={}", channelInfo.getContext());
       _deliveries.add(serviceDelivery);
     }
   }

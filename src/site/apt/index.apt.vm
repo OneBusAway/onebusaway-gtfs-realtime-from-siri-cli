@@ -19,6 +19,7 @@ that is actually producing SIRI-SX, we'd love to talk to you ({{{mailto:contact@
 #set( $rpm = 'http://nexus.onebusaway.org/service/local/artifact/maven/content?r=public&g=org.onebusaway&a=onebusaway-gtfs-realtime-from-siri-cli-&c=rpm&p=zip&v=' + ${currentVersion} )
 
   * Download the jar: {{{${url}}onebusaway-gtfs-realtime-from-siri-cli.jar}}
+
   * Download the RPM: {{{${rpm}}onebusaway-gtfs-realtime-from-siri-cli RPM}}
   
 * Usage

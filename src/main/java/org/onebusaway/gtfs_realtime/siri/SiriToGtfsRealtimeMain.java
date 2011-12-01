@@ -243,6 +243,7 @@ public class SiriToGtfsRealtimeMain {
 
     for (String arg : args) {
       SiriClientRequest request = getLineAsSubscriptionRequest(factory, arg);
+      request.setChannelContext(request.getTargetUrl());
       service.addClientRequest(request);
     }
   }
