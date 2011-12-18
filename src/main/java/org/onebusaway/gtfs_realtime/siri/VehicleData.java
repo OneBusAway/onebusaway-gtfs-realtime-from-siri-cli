@@ -25,11 +25,14 @@ class VehicleData {
 
   private final VehicleActivityStructure vehicleActivity;
 
+  private final String producer;
+
   public VehicleData(TripAndVehicleKey key, long timestamp,
-      VehicleActivityStructure vehicleActivity) {
+      VehicleActivityStructure vehicleActivity, String producer) {
     this.key = key;
     this.timestamp = timestamp;
     this.vehicleActivity = vehicleActivity;
+    this.producer = producer;
   }
   
   public TripAndVehicleKey getKey() {
@@ -42,5 +45,9 @@ class VehicleData {
 
   public VehicleActivityStructure getVehicleActivity() {
     return vehicleActivity;
+  }
+  
+  public String getProducer() {
+    return producer;
   }
 }

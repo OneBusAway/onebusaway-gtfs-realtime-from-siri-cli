@@ -192,7 +192,7 @@ public class SiriToGtfsRealtimeService {
         for (VehicleActivityStructure vehicleActivity : vmDelivery.getVehicleActivity()) {
 
           try {
-            processVehicleActivity(vehicleActivity);
+            processVehicleActivity(delivery, vehicleActivity);
           } catch (SiriMissingArgumentException ex) {
             /**
              * Maybe we should just let the exception kill the process? If
@@ -208,7 +208,7 @@ public class SiriToGtfsRealtimeService {
     writeOutput();
   }
 
-  private void processVehicleActivity(VehicleActivityStructure vehicleActivity)
+  private void processVehicleActivity(ServiceDelivery delivery, VehicleActivityStructure vehicleActivity)
       throws SiriMissingArgumentException {
 
     /**
@@ -247,9 +247,13 @@ public class SiriToGtfsRealtimeService {
     TripAndVehicleKey key = new TripAndVehicleKey(
         fvjRef.getDatedVehicleJourneyRef(),
         fvjRef.getDataFrameRef().getValue(), vehicleId);
+    
+    String producer = null;
+    if( delivery.getProducerRef() != null )
+      producer = delivery.getProducerRef().getValue();
 
     VehicleData data = new VehicleData(key, System.currentTimeMillis(),
-        vehicleActivity);
+        vehicleActivity, producer);
     _dataByVehicle.put(key, data);
   }
 
@@ -296,6 +300,8 @@ public class SiriToGtfsRealtimeService {
 
       FeedEntity.Builder entity = FeedEntity.newBuilder();
       entity.setId(getNextFeedEntityId());
+      if( data.getProducer() != null)
+        entity.setExtension(GtfsRealtimeOneBusAway.source, data.getProducer());
 
       entity.setTripUpdate(tripUpdate);
       feedMessageBuilder.addEntity(entity);
