@@ -381,6 +381,8 @@ public class SiriToGtfsRealtimeService {
 
         FeedEntity.Builder entity = FeedEntity.newBuilder();
         entity.setId(getNextFeedEntityId());
+        if( data.getProducer() != null)
+          entity.setExtension(GtfsRealtimeOneBusAway.source, data.getProducer());
 
         entity.setVehicle(vp);
         feedMessageBuilder.addEntity(entity);
