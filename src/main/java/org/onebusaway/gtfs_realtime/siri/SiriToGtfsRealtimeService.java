@@ -294,6 +294,11 @@ public class SiriToGtfsRealtimeService {
       VehicleDescriptor vd = getKeyAsVehicleDescriptor(key);
       tripUpdate.setVehicle(vd);
 
+      Date time = activity.getRecordedAtTime();
+      if (time == null)
+        time = new Date(feedTimestamp);
+      tripUpdate.setExtension(GtfsRealtimeOneBusAway.timestamp, time.getTime());
+
       applyStopSpecificDelayToTripUpdateIfApplicable(mvj, delayInSeconds,
           tripUpdate);
       tripUpdate.setExtension(GtfsRealtimeOneBusAway.delay, delayInSeconds);
