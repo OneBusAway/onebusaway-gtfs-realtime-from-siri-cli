@@ -26,6 +26,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import javax.inject.Inject;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.Parser;
@@ -41,6 +43,7 @@ import org.onebusaway.siri.core.exceptions.SiriUnknownVersionException;
 import org.onebusaway.siri.core.guice.LifecycleService;
 import org.onebusaway.siri.core.versioning.ESiriVersion;
 import org.onebusaway.siri.jetty.SiriJettyModule;
+import org.onebusaway.siri.jetty.StatusServletSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,6 +87,32 @@ public class SiriToGtfsRealtimeMain {
     }
   }
 
+  private SiriClient _client;
+
+  private SiriToGtfsRealtimeService _service;
+
+  private LifecycleService _lifecycleService;
+
+  @Inject
+  public void setClient(SiriClient client) {
+    _client = client;
+  }
+
+  @Inject
+  public void setSiriToGtfsRealtimeService(SiriToGtfsRealtimeService service) {
+    _service = service;
+  }
+
+  @Inject
+  public void setStatusServletSource(StatusServletSource statusServletSource) {
+    /* This is here mostly to ensure that the status servlet is instantiated */
+  }
+
+  @Inject
+  public void setLifecycleService(LifecycleService lifecycleService) {
+    _lifecycleService = lifecycleService;
+  }
+
   public void run(String[] args) throws Exception {
 
     Options options = new Options();
@@ -100,14 +129,14 @@ public class SiriToGtfsRealtimeMain {
     modules.add(new SiriJettyModule());
     modules.add(createModule(cli));
     Injector injector = Guice.createInjector(modules);
+    injector.injectMembers(this);
 
     configureClient(cli, injector);
 
     /**
      * Start the client and add all siri subscription requests
      */
-    LifecycleService lifecycleService = injector.getInstance(LifecycleService.class);
-    lifecycleService.start();
+    _lifecycleService.start();
   }
 
   private SiriToGtfsRealtimeModule createModule(CommandLine cli)
@@ -185,20 +214,17 @@ public class SiriToGtfsRealtimeMain {
   private void configureClient(CommandLine cli, Injector injector)
       throws MalformedURLException {
 
-    SiriClient client = injector.getInstance(SiriClient.class);
-    SiriToGtfsRealtimeService service = injector.getInstance(SiriToGtfsRealtimeService.class);
-
     if (cli.hasOption(ARG_ID))
-      client.setIdentity(cli.getOptionValue(ARG_ID));
+      _client.setIdentity(cli.getOptionValue(ARG_ID));
 
     if (cli.hasOption(ARG_CLIENT_URL))
-      client.setUrl(cli.getOptionValue(ARG_CLIENT_URL));
+      _client.setUrl(cli.getOptionValue(ARG_CLIENT_URL));
 
     if (cli.hasOption(ARG_PRIVATE_CLIENT_URL))
-      client.setPrivateUrl(cli.getOptionValue(ARG_PRIVATE_CLIENT_URL));
+      _client.setPrivateUrl(cli.getOptionValue(ARG_PRIVATE_CLIENT_URL));
 
     if (cli.hasOption(ARG_TRIP_UPDATES_PATH)) {
-      service.setTripUpdatesFile(new File(
+      _service.setTripUpdatesFile(new File(
           cli.getOptionValue(ARG_TRIP_UPDATES_PATH)));
     }
     if (cli.hasOption(ARG_TRIP_UPDATES_URL)) {
@@ -206,7 +232,7 @@ public class SiriToGtfsRealtimeMain {
     }
 
     if (cli.hasOption(ARG_VEHICLE_POSITIONS_PATH)) {
-      service.setVehiclePositionsFile(new File(
+      _service.setVehiclePositionsFile(new File(
           cli.getOptionValue(ARG_VEHICLE_POSITIONS_PATH)));
     }
     if (cli.hasOption(ARG_VEHICLE_POSITIONS_URL)) {
@@ -215,21 +241,21 @@ public class SiriToGtfsRealtimeMain {
 
     if (cli.hasOption(ARG_UPDATE_FREQUENCY)) {
       int updateFrequency = Integer.parseInt(cli.getOptionValue(ARG_UPDATE_FREQUENCY));
-      service.setUpdateFrequency(updateFrequency);
+      _service.setUpdateFrequency(updateFrequency);
     }
 
     if (cli.hasOption(ARG_STALE_DATA_THRESHOLD)) {
       int staleDataThreshold = Integer.parseInt(cli.getOptionValue(ARG_STALE_DATA_THRESHOLD));
-      service.setStaleDataThreshold(staleDataThreshold);
+      _service.setStaleDataThreshold(staleDataThreshold);
     }
 
     if (cli.hasOption(ARG_LOG_RAW_XML)) {
       String value = cli.getOptionValue(ARG_LOG_RAW_XML);
       ELogRawXmlType type = ELogRawXmlType.valueOf(value.toUpperCase());
-      client.setLogRawXmlType(type);
+      _client.setLogRawXmlType(type);
     }
 
-    client.setFormatOutputXmlByDefault(cli.hasOption(ARG_FORMAT_OUTPUT_XML));
+    _client.setFormatOutputXmlByDefault(cli.hasOption(ARG_FORMAT_OUTPUT_XML));
 
     String[] args = cli.getArgs();
 
@@ -244,7 +270,7 @@ public class SiriToGtfsRealtimeMain {
     for (String arg : args) {
       SiriClientRequest request = getLineAsSubscriptionRequest(factory, arg);
       request.setChannelContext(request.getTargetUrl());
-      service.addClientRequest(request);
+      _service.addClientRequest(request);
     }
   }
 
