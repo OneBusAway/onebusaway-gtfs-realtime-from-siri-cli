@@ -1,7 +1,7 @@
 onebusaway-gtfs-realtime-from-siri-cli
 
   The <<<onebusaway-gtfs-realtime-from-siri-cli>>> application is designed to convert data in the
-{{{http://www.siri.org.uk/}SIRI}} formatinto the {{{http://code.google.com/transit/realtime/}GTFS-realtime}} format.
+{{{http://www.siri.org.uk/}SIRI}} format into the {{{http://code.google.com/transit/realtime/}GTFS-realtime}} format.
 Both standards describe methods for exchanging real-time public transit information in a machine-readable way.  SIRI is
 often used by transit agencies for exchanging operations-oriented data with internal systems, while GTFS-realtime is
 designed for exchanging rider-oriented data with external developers.
@@ -13,14 +13,18 @@ Feed information is written to file, where it can be hosted using your existing 
   Current SIRI Situation Exchange messages are not supported for producing GTFS-realtime alerts.  If you have a system
 that is actually producing SIRI-SX, we'd love to talk to you ({{{mailto:contact@onebusaway.org}contact@onebusaway.org}}).
 
-* Getting he Application
-  
+* Getting The Application
+
 #set( $url = 'http://nexus.onebusaway.org/service/local/artifact/maven/content?r=public&g=org.onebusaway&a=onebusaway-gtfs-realtime-from-siri-cli&v=' + ${currentVersion} )
 #set( $rpm = 'http://nexus.onebusaway.org/service/local/artifact/maven/content?r=public&g=org.onebusaway&a=onebusaway-gtfs-realtime-from-siri-cli&c=rpm&p=zip&v=' + ${currentVersion} )
 
   * Download the jar: {{{${url}}onebusaway-gtfs-realtime-from-siri-cli.jar}}
 
   * Download the RPM: {{{${rpm}}onebusaway-gtfs-realtime-from-siri-cli RPM}}
+  
+  []
+  
+  Be sure to check out the {{{./rpm.html}full documentation}} for RPM and Linux service. 
   
 * Usage
 
@@ -46,9 +50,39 @@ java -jar onebusaway-gtfs-realtime-from-siri-cli.jar [-args] request [request ..
   
   * <<<--vehiclePositionsUrl=url>>> - share GTFS-realtime VehiclePositions at the specified url
   
-  * <<<--updateFrequency time>>> - how often to update the GTFS-realtime output files, in seconds
+  * <<<--updateFrequency time>>> - how often to update the GTFS-realtime output files, in seconds (default=10s)
   
-  * <<<--staleDataThreshold time>>> - how long before a SIRI vehicle update is considered stale, in seconds
+  * <<<--staleDataThreshold time>>> - how long before a SIRI vehicle update is considered stale, in seconds (default=5m)
+  
+* Exporting GTFS-realtime
+
+  We currently support two methods for exporting GTFS-realtime data:
+  
+  * write the feed to a file
+  
+  * share the feed through an embedded web-server
+  
+  []
+  
+  For example, to write trip updates to a Protocol Buffer encoded output file, you might specify the following command
+  line option:
+  
++---+
+--tripUpdatesPath=/var/www/trip-updates
++---+
+
+  This might be a good option if you have an existing web server.  By writing the GTFS-realtime feed to a file, you can
+  let your web server do the work of sharing the file with external clients.
+  
+  Of course, if you don't have a web server, you can let the application host the feed directly.  Consider the following
+  example:
+  
++---+
+--tripUpdatesUrl=http://localhost:8080/trip-updates
++---+  
+
+  This will share the Protocol Buffer encoded data feed at the url {{{http://localhost:8080/trip-updates}}}.  You can
+  even see a text-encoded debug version of the feed by appending "?debug" to the url.
   
 * Request Examples
 
@@ -61,3 +95,17 @@ Url=http://host:port/path,ModuleType=VEHICLE_MONITORING
   
   For more info on SIRI requests, see
 {{{http://developer.onebusaway.org/modules/onebusaway-siri/${onebusaway_siri_version}/cli-request-spec.html}the full documentation}}.
+
+* Complete Example
+
+  Here's a complete example that shares trip updates and vehicle positions over HTTP and connects to a remote SIRI
+  endpoint to pull Vehicle Monitoring records.  It also sends Check-Status requests to the SIRI endpoing every 60
+  seconds, will attempt an infinite number of reconnection attempts if the SIRI connection is lost.
+  
++---+
+java -jar onebusaway-gtfs-realtime-from-siri-cli.jar \
+ --tripUpdatesUrl=http://localhost:8080/trip-updates \
+ --vehiclePositionsUrl=http://localhost:8080/vehicle-positions \
+ Url=http://siri-server:8080/server.xml,ModuleType=VEHICLE_MONITORING,CheckStatusInterval=60,ReconnectionAttempts=-1
++---+
+

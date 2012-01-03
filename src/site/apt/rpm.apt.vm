@@ -49,7 +49,7 @@ requestor ref to <<<me>>> and subscribes to vehicle monitoring messages from <<<
 
 +---+  
 # Custom onebusaway-gtfs-realtime-from-siri-cli arguments go here
-CLI_ARGS="-id me Url=http://host:8080/subscribe.xml,ModuleType=VEHICLE_MONITORING"
+CLI_ARGS="--tripUpdatesUrl=http://localhost:8080/trip-updates Url=http://host:8080/subscribe.xml,ModuleType=VEHICLE_MONITORING"
 +---+
 
 * Starting and Stopping the Service
