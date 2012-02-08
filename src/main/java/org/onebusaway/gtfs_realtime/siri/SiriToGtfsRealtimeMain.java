@@ -15,14 +15,11 @@
  */
 package org.onebusaway.gtfs_realtime.siri;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -32,13 +29,14 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.Parser;
 import org.apache.commons.cli.PosixParser;
+import org.onebusaway.cli.CommandLineInterfaceLibrary;
 import org.onebusaway.cli.Daemonizer;
 import org.onebusaway.siri.core.SiriClient;
 import org.onebusaway.siri.core.SiriClientRequest;
 import org.onebusaway.siri.core.SiriClientRequestFactory;
+import org.onebusaway.siri.core.SiriCommon.ELogRawXmlType;
 import org.onebusaway.siri.core.SiriCoreModule;
 import org.onebusaway.siri.core.SiriLibrary;
-import org.onebusaway.siri.core.SiriCommon.ELogRawXmlType;
 import org.onebusaway.siri.core.exceptions.SiriUnknownVersionException;
 import org.onebusaway.siri.core.guice.LifecycleService;
 import org.onebusaway.siri.core.versioning.ESiriVersion;
@@ -72,6 +70,8 @@ public class SiriToGtfsRealtimeMain {
   private static final String ARG_UPDATE_FREQUENCY = "updateFrequency";
 
   private static final String ARG_STALE_DATA_THRESHOLD = "staleDataThreshold";
+
+  private static final String ARG_PRODUCER_PRIORITIES = "producerPriorities";
 
   private static final String ARG_LOG_RAW_XML = "logRawXml";
 
@@ -166,27 +166,11 @@ public class SiriToGtfsRealtimeMain {
     options.addOption(ARG_STALE_DATA_THRESHOLD, true, "stale data threshold");
     options.addOption(ARG_LOG_RAW_XML, true, "log raw xml");
     options.addOption(ARG_FORMAT_OUTPUT_XML, false, "format output xml");
+    options.addOption(ARG_PRODUCER_PRIORITIES, true, "producer priorities");
   }
 
   private void printUsage() {
-    InputStream is = getClass().getResourceAsStream("usage.txt");
-    BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-    String line = null;
-    try {
-      while ((line = reader.readLine()) != null) {
-        System.err.println(line);
-      }
-    } catch (IOException ex) {
-
-    } finally {
-      if (reader != null) {
-        try {
-          reader.close();
-        } catch (IOException ex) {
-
-        }
-      }
-    }
+    CommandLineInterfaceLibrary.printUsage(getClass());
   }
 
   private void ensureMinimalArgs(CommandLine cli) {
@@ -247,6 +231,21 @@ public class SiriToGtfsRealtimeMain {
     if (cli.hasOption(ARG_STALE_DATA_THRESHOLD)) {
       int staleDataThreshold = Integer.parseInt(cli.getOptionValue(ARG_STALE_DATA_THRESHOLD));
       _service.setStaleDataThreshold(staleDataThreshold);
+    }
+    if (cli.hasOption(ARG_PRODUCER_PRIORITIES)) {
+      Map<String, Integer> producerPriorities = new HashMap<String, Integer>();
+      String values = cli.getOptionValue(ARG_PRODUCER_PRIORITIES);
+      for (String token : values.split(",")) {
+        int index = token.lastIndexOf('=');
+        if (index == -1) {
+          throw new IllegalArgumentException("malformed "
+              + ARG_PRODUCER_PRIORITIES + " argument: " + values);
+        }
+        String key = token.substring(0, index);
+        int value = Integer.parseInt(token.substring(index + 1));
+        producerPriorities.put(key, value);
+      }
+      _service.setProducerPriorities(producerPriorities);
     }
 
     if (cli.hasOption(ARG_LOG_RAW_XML)) {

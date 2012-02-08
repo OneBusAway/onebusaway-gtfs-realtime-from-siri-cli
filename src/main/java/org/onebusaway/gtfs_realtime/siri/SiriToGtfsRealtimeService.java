@@ -103,6 +103,8 @@ public class SiriToGtfsRealtimeService {
    */
   private int _staleDataThreshold = 5 * 60;
 
+  private Map<String, Integer> _producerPriorities;
+
   private Server _server;
 
   private volatile FeedMessage _tripUpdatesMessage = createFeedMessageBuilderWithHeader(
@@ -147,6 +149,10 @@ public class SiriToGtfsRealtimeService {
    */
   public void setStaleDataThreshold(int staleDataThreshold) {
     _staleDataThreshold = staleDataThreshold;
+  }
+
+  public void setProducerPriorities(Map<String, Integer> producerPriorities) {
+    _producerPriorities = producerPriorities;
   }
 
   public FeedMessage getTripUpdatesMessage() {
@@ -208,7 +214,8 @@ public class SiriToGtfsRealtimeService {
     writeOutput();
   }
 
-  private void processVehicleActivity(ServiceDelivery delivery, VehicleActivityStructure vehicleActivity)
+  private void processVehicleActivity(ServiceDelivery delivery,
+      VehicleActivityStructure vehicleActivity)
       throws SiriMissingArgumentException {
 
     /**
@@ -247,14 +254,39 @@ public class SiriToGtfsRealtimeService {
     TripAndVehicleKey key = new TripAndVehicleKey(
         fvjRef.getDatedVehicleJourneyRef(),
         fvjRef.getDataFrameRef().getValue(), vehicleId);
-    
+
     String producer = null;
-    if( delivery.getProducerRef() != null )
+    if (delivery.getProducerRef() != null)
       producer = delivery.getProducerRef().getValue();
+
+    if (isProducerOfHigherPriorityThanExistingData(key, producer)) {
+      return;
+    }
 
     VehicleData data = new VehicleData(key, System.currentTimeMillis(),
         vehicleActivity, producer);
     _dataByVehicle.put(key, data);
+  }
+
+  private boolean isProducerOfHigherPriorityThanExistingData(
+      TripAndVehicleKey key, String producer) {
+    VehicleData data = _dataByVehicle.get(key);
+    if (data == null)
+      return true;
+    int existingPriority = getPriorityForProducer(data.getProducer());
+    int newPriority = getPriorityForProducer(producer);
+    return existingPriority < newPriority;
+  }
+
+  private int getPriorityForProducer(String producer) {
+    if (producer == null || _producerPriorities == null) {
+      return -1;
+    }
+    Integer priority = _producerPriorities.get(producer);
+    if (priority == null) {
+      return -1;
+    }
+    return priority;
   }
 
   private void writeOutput() throws IOException {
@@ -305,7 +337,7 @@ public class SiriToGtfsRealtimeService {
 
       FeedEntity.Builder entity = FeedEntity.newBuilder();
       entity.setId(getNextFeedEntityId());
-      if( data.getProducer() != null)
+      if (data.getProducer() != null)
         entity.setExtension(GtfsRealtimeOneBusAway.source, data.getProducer());
 
       entity.setTripUpdate(tripUpdate);
@@ -386,7 +418,7 @@ public class SiriToGtfsRealtimeService {
 
         FeedEntity.Builder entity = FeedEntity.newBuilder();
         entity.setId(getNextFeedEntityId());
-        if( data.getProducer() != null)
+        if (data.getProducer() != null)
           entity.setExtension(GtfsRealtimeOneBusAway.source, data.getProducer());
 
         entity.setVehicle(vp);
