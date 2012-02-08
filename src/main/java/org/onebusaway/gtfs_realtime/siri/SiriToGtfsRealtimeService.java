@@ -259,7 +259,7 @@ public class SiriToGtfsRealtimeService {
     if (delivery.getProducerRef() != null)
       producer = delivery.getProducerRef().getValue();
 
-    if (isProducerOfHigherPriorityThanExistingData(key, producer)) {
+    if (! isProducerOfHigherPriorityThanExistingData(key, producer)) {
       return;
     }
 
