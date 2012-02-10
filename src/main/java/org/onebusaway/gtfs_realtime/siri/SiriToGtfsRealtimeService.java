@@ -15,9 +15,6 @@
  */
 package org.onebusaway.gtfs_realtime.siri;
 
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -42,23 +39,31 @@ import org.onebusaway.siri.core.SiriClient;
 import org.onebusaway.siri.core.SiriClientRequest;
 import org.onebusaway.siri.core.exceptions.SiriMissingArgumentException;
 import org.onebusaway.siri.core.handlers.SiriServiceDeliveryHandler;
+import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import uk.org.siri.siri.EntryQualifierStructure;
 import uk.org.siri.siri.FramedVehicleJourneyRefStructure;
 import uk.org.siri.siri.LocationStructure;
 import uk.org.siri.siri.MonitoredCallStructure;
+import uk.org.siri.siri.PtSituationElementStructure;
+import uk.org.siri.siri.RoadSituationElementStructure.ValidityPeriod;
 import uk.org.siri.siri.ServiceDelivery;
+import uk.org.siri.siri.SituationExchangeDeliveryStructure;
+import uk.org.siri.siri.SituationExchangeDeliveryStructure.Situations;
 import uk.org.siri.siri.StopPointRefStructure;
 import uk.org.siri.siri.VehicleActivityStructure;
 import uk.org.siri.siri.VehicleActivityStructure.MonitoredVehicleJourney;
 import uk.org.siri.siri.VehicleMonitoringDeliveryStructure;
 import uk.org.siri.siri.VehicleRefStructure;
+import uk.org.siri.siri.WorkflowStatusEnumeration;
 
 import com.google.inject.name.Named;
 import com.google.transit.realtime.GtfsRealtime.FeedEntity;
 import com.google.transit.realtime.GtfsRealtime.FeedHeader;
 import com.google.transit.realtime.GtfsRealtime.FeedHeader.Incrementality;
+import com.google.transit.realtime.GtfsRealtime.Alert;
 import com.google.transit.realtime.GtfsRealtime.FeedMessage;
 import com.google.transit.realtime.GtfsRealtime.Position;
 import com.google.transit.realtime.GtfsRealtime.TripDescriptor;
@@ -71,13 +76,15 @@ import com.google.transit.realtime.GtfsRealtimeConstants;
 import com.google.transit.realtime.GtfsRealtimeOneBusAway;
 
 @Singleton
-public class SiriToGtfsRealtimeService {
+public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
 
   private static Logger _log = LoggerFactory.getLogger(SiriToGtfsRealtimeService.class);
 
-  private ScheduledExecutorService _executor;
-
   private SiriClient _client;
+
+  private AlertFactory _alertFactory;
+
+  private ScheduledExecutorService _executor;
 
   private ServiceDeliveryHandlerImpl _serviceDeliveryHandler = new ServiceDeliveryHandlerImpl();
 
@@ -85,13 +92,11 @@ public class SiriToGtfsRealtimeService {
 
   private Map<TripAndVehicleKey, VehicleData> _dataByVehicle = new HashMap<TripAndVehicleKey, VehicleData>();
 
+  private Map<String, AlertData> _alertDataById = new HashMap<String, AlertData>();
+
   private long _idIndex = 0;
 
   private List<SiriClientRequest> _clientRequests = new ArrayList<SiriClientRequest>();
-
-  private File _tripUpdatesFile;
-
-  private File _vehiclePositionsFile;
 
   /**
    * How often we update the output files, in seconds
@@ -113,9 +118,17 @@ public class SiriToGtfsRealtimeService {
   private volatile FeedMessage _vehiclePositionsMessage = createFeedMessageBuilderWithHeader(
       System.currentTimeMillis()).build();
 
+  private volatile FeedMessage _alertsMessage = createFeedMessageBuilderWithHeader(
+      System.currentTimeMillis()).build();
+
   @Inject
   public void setClient(SiriClient client) {
     _client = client;
+  }
+
+  @Inject
+  public void setAlertFactory(AlertFactory alertFactory) {
+    _alertFactory = alertFactory;
   }
 
   @Inject
@@ -126,14 +139,6 @@ public class SiriToGtfsRealtimeService {
 
   public void addClientRequest(SiriClientRequest request) {
     _clientRequests.add(request);
-  }
-
-  public void setTripUpdatesFile(File tripUpdatesFile) {
-    _tripUpdatesFile = tripUpdatesFile;
-  }
-
-  public void setVehiclePositionsFile(File vehiclePositionsFile) {
-    _vehiclePositionsFile = vehiclePositionsFile;
   }
 
   /**
@@ -155,14 +160,6 @@ public class SiriToGtfsRealtimeService {
     _producerPriorities = producerPriorities;
   }
 
-  public FeedMessage getTripUpdatesMessage() {
-    return _tripUpdatesMessage;
-  }
-
-  public FeedMessage getVehiclePositionsMessage() {
-    return _vehiclePositionsMessage;
-  }
-
   @PostConstruct
   public void start() throws Exception {
 
@@ -182,6 +179,25 @@ public class SiriToGtfsRealtimeService {
     if (_server != null) {
       _server.stop();
     }
+  }
+
+  /****
+   * {@link GtfsRealtimeProvider} Interface
+   ****/
+
+  @Override
+  public FeedMessage getTripUpdates() {
+    return _tripUpdatesMessage;
+  }
+
+  @Override
+  public FeedMessage getVehiclePositions() {
+    return _vehiclePositionsMessage;
+  }
+
+  @Override
+  public FeedMessage getAlerts() {
+    return _alertsMessage;
   }
 
   /****
@@ -207,6 +223,15 @@ public class SiriToGtfsRealtimeService {
             _log.warn(ex.getMessage());
             continue;
           }
+        }
+      }
+      for (SituationExchangeDeliveryStructure sxDelivery : delivery.getSituationExchangeDelivery()) {
+        Situations situations = sxDelivery.getSituations();
+        if (situations == null) {
+          continue;
+        }
+        for (PtSituationElementStructure situation : situations.getPtSituationElement()) {
+          processSituation(delivery, situation);
         }
       }
     }
@@ -259,13 +284,27 @@ public class SiriToGtfsRealtimeService {
     if (delivery.getProducerRef() != null)
       producer = delivery.getProducerRef().getValue();
 
-    if (! isProducerOfHigherPriorityThanExistingData(key, producer)) {
+    if (!isProducerOfHigherPriorityThanExistingData(key, producer)) {
       return;
     }
 
     VehicleData data = new VehicleData(key, System.currentTimeMillis(),
         vehicleActivity, producer);
     _dataByVehicle.put(key, data);
+  }
+
+  private void processSituation(ServiceDelivery delivery,
+      PtSituationElementStructure situation) {
+    EntryQualifierStructure situationNumber = situation.getSituationNumber();
+    if (situationNumber == null || situationNumber.getValue() == null) {
+      _log.warn("PtSituationElement did not specify a SituationNumber");
+    }
+    String id = situationNumber.getValue();
+    String producer = null;
+    if (delivery.getProducerRef() != null)
+      producer = delivery.getProducerRef().getValue();
+    AlertData data = new AlertData(situation, producer);
+    _alertDataById.put(id, data);
   }
 
   private boolean isProducerOfHigherPriorityThanExistingData(
@@ -292,6 +331,7 @@ public class SiriToGtfsRealtimeService {
   private void writeOutput() throws IOException {
     writeTripUpdates();
     writeVehiclePositions();
+    writeAlerts();
   }
 
   private void writeTripUpdates() throws IOException {
@@ -344,15 +384,7 @@ public class SiriToGtfsRealtimeService {
       feedMessageBuilder.addEntity(entity);
     }
 
-    FeedMessage message = feedMessageBuilder.build();
-    _tripUpdatesMessage = message;
-
-    if (_tripUpdatesFile != null) {
-      BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(
-          _tripUpdatesFile));
-      message.writeTo(out);
-      out.close();
-    }
+    _tripUpdatesMessage = feedMessageBuilder.build();
   }
 
   private void applyStopSpecificDelayToTripUpdateIfApplicable(
@@ -426,15 +458,89 @@ public class SiriToGtfsRealtimeService {
       }
     }
 
-    FeedMessage message = feedMessageBuilder.build();
-    _vehiclePositionsMessage = message;
+    _vehiclePositionsMessage = feedMessageBuilder.build();
+  }
 
-    if (_vehiclePositionsFile != null) {
-      BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(
-          _vehiclePositionsFile));
-      message.writeTo(out);
-      out.close();
+  private void writeAlerts() {
+    long feedTimestamp = System.currentTimeMillis();
+    FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilderWithHeader(feedTimestamp);
+
+    for (AlertData data : _alertDataById.values()) {
+
+      PtSituationElementStructure situation = data.getSituation();
+
+      /**
+       * If the situation has been closed, we no longer show the alert in the
+       * GTFS-realtime feed.
+       */
+      if (isSituationClosed(situation)) {
+        continue;
+      }
+
+      /**
+       * If the situation is no longer in a valid period, we no longer show the
+       * alert in the GTFS-realtime feed.
+       */
+      if (!isSituationPeriodCurrentlyValid(situation)) {
+        continue;
+      }
+
+      Alert.Builder alert = _alertFactory.createAlertFromSituation(situation);
+
+      FeedEntity.Builder entity = FeedEntity.newBuilder();
+      entity.setId(getNextFeedEntityId());
+
+      if (data.getProducer() != null)
+        entity.setExtension(GtfsRealtimeOneBusAway.source, data.getProducer());
+
+      entity.setAlert(alert);
+      feedMessageBuilder.addEntity(entity);
     }
+
+    _alertsMessage = feedMessageBuilder.build();
+  }
+
+  private boolean isSituationClosed(PtSituationElementStructure situation) {
+    WorkflowStatusEnumeration progress = situation.getProgress();
+    return progress != null
+        && (progress == WorkflowStatusEnumeration.CLOSING || progress == WorkflowStatusEnumeration.CLOSED);
+  }
+
+  private boolean isSituationPeriodCurrentlyValid(
+      PtSituationElementStructure situation) {
+
+    List<ValidityPeriod> periods = situation.getValidityPeriod();
+    if (periods == null || periods.isEmpty() ) {
+      return true;
+    }
+
+    Date now = new Date();
+
+    for (ValidityPeriod period : periods) {
+      Date startTime = period.getStartTime();
+      Date endTime = period.getEndTime();
+      if (startTime == null) {
+        _log.warn("expected ValidityPeriod StartTime to be specified for situation "
+            + situation.getSituationNumber().getValue());
+      }
+      if (startTime == null && endTime == null) {
+        continue;
+      } else if (startTime == null) {
+        if (now.before(endTime)) {
+          return true;
+        }
+      } else if (endTime == null) {
+        if (startTime.before(now)) {
+          return true;
+        }
+      } else {
+        if (startTime.before(now) && now.before(endTime)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   private boolean isDataStale(VehicleData data, long currentTime) {

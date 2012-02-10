@@ -1,4 +1,5 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <artifactId>onebusaway</artifactId>
@@ -11,7 +12,7 @@
   <description>Produce GTFS-realtime data from a SIRI data-stream</description>
 
   <properties>
-    <onebusaway_siri_version>1.0.3</onebusaway_siri_version>
+    <onebusaway_siri_version>1.0.4-SNAPSHOT</onebusaway_siri_version>
     <gtfs_realtime_api_version>1.0.2</gtfs_realtime_api_version>
   </properties>
 
@@ -41,6 +42,11 @@
       <groupId>org.onebusaway</groupId>
       <artifactId>onebusaway-siri-jetty</artifactId>
       <version>${onebusaway_siri_version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.onebusaway</groupId>
+      <artifactId>onebusaway-gtfs-realtime-exporter</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.onebusaway</groupId>

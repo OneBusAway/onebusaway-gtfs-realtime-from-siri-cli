@@ -1,17 +1,14 @@
 onebusaway-gtfs-realtime-from-siri-cli
 
   The <<<onebusaway-gtfs-realtime-from-siri-cli>>> application is designed to convert data in the
-{{{http://www.siri.org.uk/}SIRI}} format into the {{{http://code.google.com/transit/realtime/}GTFS-realtime}} format.
+{{{http://www.siri.org.uk/}SIRI}} format into the {{{https://developers.google.com/transit/gtfs-realtime/}GTFS-realtime}} format.
 Both standards describe methods for exchanging real-time public transit information in a machine-readable way.  SIRI is
 often used by transit agencies for exchanging operations-oriented data with internal systems, while GTFS-realtime is
 designed for exchanging rider-oriented data with external developers.
 
-  Specifically, the application subscribes to a SIRI endpoint, listens for Vehicle Monitoring messages, and produces
-GTFS-realtime trip updates and vehicle position feed data.  Both SIRI 1.0 and 1.3 are supported for input.  GTFS-realtime
-Feed information is written to file, where it can be hosted using your existing web infrastructure.
-
-  Current SIRI Situation Exchange messages are not supported for producing GTFS-realtime alerts.  If you have a system
-that is actually producing SIRI-SX, we'd love to talk to you ({{{mailto:contact@onebusaway.org}contact@onebusaway.org}}).
+  Specifically, the application subscribes to a SIRI endpoint, listens for Vehicle Monitoring and Situation Exchange
+messages, and produces GTFS-realtime trip update, vehicle position, and alerts feed data.  Both SIRI 1.0 and 1.3 are
+supported for input.  GTFS-realtime Feed information is written to file, where it can be hosted using your existing web infrastructure.
 
 * Getting The Application
 

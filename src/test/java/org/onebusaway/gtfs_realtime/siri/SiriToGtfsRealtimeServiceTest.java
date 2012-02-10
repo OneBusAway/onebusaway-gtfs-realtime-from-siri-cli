@@ -18,15 +18,12 @@ package org.onebusaway.gtfs_realtime.siri;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -62,8 +59,6 @@ public class SiriToGtfsRealtimeServiceTest {
   private SiriToGtfsRealtimeService _service;
   private ScheduledExecutorService _executor;
   private SiriClient _client;
-  private File _tripUpdatesFile;
-  private File _vehiclePositionsFile;
 
   @Before
   public void setup() throws IOException {
@@ -74,22 +69,6 @@ public class SiriToGtfsRealtimeServiceTest {
 
     _client = Mockito.mock(SiriClient.class);
     _service.setClient(_client);
-
-    _tripUpdatesFile = File.createTempFile(
-        SiriToGtfsRealtimeServiceTest.class.getName() + "-TripUpdates-",
-        ".proto-data");
-    _vehiclePositionsFile = File.createTempFile(
-        SiriToGtfsRealtimeServiceTest.class.getName() + "-VehiclePositions-",
-        ".proto-data");
-
-    _service.setTripUpdatesFile(_tripUpdatesFile);
-    _service.setVehiclePositionsFile(_vehiclePositionsFile);
-  }
-
-  @After
-  public void teardown() {
-    _tripUpdatesFile.delete();
-    _vehiclePositionsFile.delete();
   }
 
   @Test
@@ -115,13 +94,11 @@ public class SiriToGtfsRealtimeServiceTest {
      */
     writeTask.run();
 
-    FeedMessage tripUpdatesFeed = FeedMessage.parseFrom(new FileInputStream(
-        _tripUpdatesFile));
+    FeedMessage tripUpdatesFeed = _service.getTripUpdates();
     verifyHeader(tripUpdatesFeed);
     assertEquals(0, tripUpdatesFeed.getEntityCount());
 
-    FeedMessage vehiclePositionFeed = FeedMessage.parseFrom(new FileInputStream(
-        _vehiclePositionsFile));
+    FeedMessage vehiclePositionFeed = _service.getVehiclePositions();
     verifyHeader(vehiclePositionFeed);
     assertEquals(0, vehiclePositionFeed.getEntityCount());
 
@@ -168,8 +145,7 @@ public class SiriToGtfsRealtimeServiceTest {
      */
     writeTask.run();
 
-    tripUpdatesFeed = FeedMessage.parseFrom(new FileInputStream(
-        _tripUpdatesFile));
+    tripUpdatesFeed = _service.getTripUpdates();
     verifyHeader(tripUpdatesFeed);
     assertEquals(1, tripUpdatesFeed.getEntityCount());
 
@@ -195,8 +171,7 @@ public class SiriToGtfsRealtimeServiceTest {
     assertEquals(0, stopTimeEvent.getTime());
     assertEquals(0, stopTimeEvent.getUncertainty());
 
-    vehiclePositionFeed = FeedMessage.parseFrom(new FileInputStream(
-        _vehiclePositionsFile));
+    vehiclePositionFeed = _service.getVehiclePositions();
     verifyHeader(vehiclePositionFeed);
     assertEquals(1, vehiclePositionFeed.getEntityCount());
 
@@ -224,13 +199,11 @@ public class SiriToGtfsRealtimeServiceTest {
      */
     writeTask.run();
 
-    tripUpdatesFeed = FeedMessage.parseFrom(new FileInputStream(
-        _tripUpdatesFile));
+    tripUpdatesFeed = _service.getTripUpdates();
     verifyHeader(tripUpdatesFeed);
     assertEquals(0, tripUpdatesFeed.getEntityCount());
 
-    vehiclePositionFeed = FeedMessage.parseFrom(new FileInputStream(
-        _vehiclePositionsFile));
+    vehiclePositionFeed = _service.getVehiclePositions();
     verifyHeader(vehiclePositionFeed);
     assertEquals(0, vehiclePositionFeed.getEntityCount());
 

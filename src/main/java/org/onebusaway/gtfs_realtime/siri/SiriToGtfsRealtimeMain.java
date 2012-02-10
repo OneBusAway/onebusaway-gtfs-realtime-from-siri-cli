@@ -31,6 +31,7 @@ import org.apache.commons.cli.Parser;
 import org.apache.commons.cli.PosixParser;
 import org.onebusaway.cli.CommandLineInterfaceLibrary;
 import org.onebusaway.cli.Daemonizer;
+import org.onebusaway.guice.jsr250.LifecycleService;
 import org.onebusaway.siri.core.SiriClient;
 import org.onebusaway.siri.core.SiriClientRequest;
 import org.onebusaway.siri.core.SiriClientRequestFactory;
@@ -38,10 +39,15 @@ import org.onebusaway.siri.core.SiriCommon.ELogRawXmlType;
 import org.onebusaway.siri.core.SiriCoreModule;
 import org.onebusaway.siri.core.SiriLibrary;
 import org.onebusaway.siri.core.exceptions.SiriUnknownVersionException;
-import org.onebusaway.siri.core.guice.LifecycleService;
 import org.onebusaway.siri.core.versioning.ESiriVersion;
 import org.onebusaway.siri.jetty.SiriJettyModule;
 import org.onebusaway.siri.jetty.StatusServletSource;
+import org.onebusway.gtfs_realtime.exporter.AlertsFileWriter;
+import org.onebusway.gtfs_realtime.exporter.AlertsServlet;
+import org.onebusway.gtfs_realtime.exporter.TripUpdatesFileWriter;
+import org.onebusway.gtfs_realtime.exporter.TripUpdatesServlet;
+import org.onebusway.gtfs_realtime.exporter.VehiclePositionsFileWriter;
+import org.onebusway.gtfs_realtime.exporter.VehiclePositionsServlet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,6 +72,10 @@ public class SiriToGtfsRealtimeMain {
   private static final String ARG_VEHICLE_POSITIONS_PATH = "vehiclePositionsPath";
 
   private static final String ARG_VEHICLE_POSITIONS_URL = "vehiclePositionsUrl";
+
+  private static final String ARG_ALERTS_PATH = "alertsPath";
+
+  private static final String ARG_ALERTS_URL = "alertsUrl";
 
   private static final String ARG_UPDATE_FREQUENCY = "updateFrequency";
 
@@ -127,7 +137,7 @@ public class SiriToGtfsRealtimeMain {
     List<Module> modules = new ArrayList<Module>();
     modules.addAll(SiriCoreModule.getModules());
     modules.add(new SiriJettyModule());
-    modules.add(createModule(cli));
+    modules.add(new SiriToGtfsRealtimeModule());
     Injector injector = Guice.createInjector(modules);
     injector.injectMembers(this);
 
@@ -139,20 +149,6 @@ public class SiriToGtfsRealtimeMain {
     _lifecycleService.start();
   }
 
-  private SiriToGtfsRealtimeModule createModule(CommandLine cli)
-      throws MalformedURLException {
-    SiriToGtfsRealtimeModule module = new SiriToGtfsRealtimeModule();
-
-    if (cli.hasOption(ARG_TRIP_UPDATES_URL)) {
-      module.setTripUpdatesUrl(new URL(cli.getOptionValue(ARG_TRIP_UPDATES_URL)));
-    }
-    if (cli.hasOption(ARG_VEHICLE_POSITIONS_URL)) {
-      module.setVehiclePositionsUrl(new URL(
-          cli.getOptionValue(ARG_VEHICLE_POSITIONS_URL)));
-    }
-    return module;
-  }
-
   protected void buildOptions(Options options) {
     options.addOption(ARG_ID, true, "id");
     options.addOption(ARG_CLIENT_URL, true, "siri client url");
@@ -162,6 +158,8 @@ public class SiriToGtfsRealtimeMain {
     options.addOption(ARG_VEHICLE_POSITIONS_PATH, true,
         "vehicle locations path");
     options.addOption(ARG_VEHICLE_POSITIONS_URL, true, "vehicle locations url");
+    options.addOption(ARG_ALERTS_PATH, true, "alerts path");
+    options.addOption(ARG_ALERTS_URL, true, "alerts url");
     options.addOption(ARG_UPDATE_FREQUENCY, true, "update frequency");
     options.addOption(ARG_STALE_DATA_THRESHOLD, true, "stale data threshold");
     options.addOption(ARG_LOG_RAW_XML, true, "log raw xml");
@@ -208,19 +206,30 @@ public class SiriToGtfsRealtimeMain {
       _client.setPrivateUrl(cli.getOptionValue(ARG_PRIVATE_CLIENT_URL));
 
     if (cli.hasOption(ARG_TRIP_UPDATES_PATH)) {
-      _service.setTripUpdatesFile(new File(
-          cli.getOptionValue(ARG_TRIP_UPDATES_PATH)));
+      TripUpdatesFileWriter writer = injector.getInstance(TripUpdatesFileWriter.class);
+      writer.setPath(new File(cli.getOptionValue(ARG_TRIP_UPDATES_PATH)));
     }
     if (cli.hasOption(ARG_TRIP_UPDATES_URL)) {
-      injector.getInstance(TripUpdatesServlet.class);
+      TripUpdatesServlet servlet = injector.getInstance(TripUpdatesServlet.class);
+      servlet.setUrl(new URL(cli.getOptionValue(ARG_TRIP_UPDATES_URL)));
     }
 
     if (cli.hasOption(ARG_VEHICLE_POSITIONS_PATH)) {
-      _service.setVehiclePositionsFile(new File(
-          cli.getOptionValue(ARG_VEHICLE_POSITIONS_PATH)));
+      VehiclePositionsFileWriter writer = injector.getInstance(VehiclePositionsFileWriter.class);
+      writer.setPath(new File(cli.getOptionValue(ARG_VEHICLE_POSITIONS_PATH)));
     }
     if (cli.hasOption(ARG_VEHICLE_POSITIONS_URL)) {
-      injector.getInstance(VehiclePositionsServlet.class);
+      VehiclePositionsServlet servlet = injector.getInstance(VehiclePositionsServlet.class);
+      servlet.setUrl(new URL(cli.getOptionValue(ARG_VEHICLE_POSITIONS_URL)));
+    }
+
+    if (cli.hasOption(ARG_ALERTS_PATH)) {
+      AlertsFileWriter writer = injector.getInstance(AlertsFileWriter.class);
+      writer.setPath(new File(cli.getOptionValue(ARG_ALERTS_PATH)));
+    }
+    if (cli.hasOption(ARG_ALERTS_URL)) {
+      AlertsServlet servlet = injector.getInstance(AlertsServlet.class);
+      servlet.setUrl(new URL(cli.getOptionValue(ARG_ALERTS_URL)));
     }
 
     if (cli.hasOption(ARG_UPDATE_FREQUENCY)) {
@@ -279,7 +288,7 @@ public class SiriToGtfsRealtimeMain {
     try {
 
       Map<String, String> subArgs = SiriLibrary.getLineAsMap(requestSpec);
-      return factory.createSubscriptionRequest(subArgs);
+      return factory.createRequest(subArgs);
 
     } catch (SiriUnknownVersionException ex) {
 
