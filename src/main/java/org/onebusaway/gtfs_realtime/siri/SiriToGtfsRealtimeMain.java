@@ -83,6 +83,8 @@ public class SiriToGtfsRealtimeMain {
 
   private static final String ARG_PRODUCER_PRIORITIES = "producerPriorities";
 
+  private static final String ARG_STRIP_ID_PREFIX = "stripIdPrefix";
+
   private static final String ARG_LOG_RAW_XML = "logRawXml";
 
   private static final String ARG_FORMAT_OUTPUT_XML = "formatOutputXml";
@@ -101,6 +103,8 @@ public class SiriToGtfsRealtimeMain {
 
   private SiriToGtfsRealtimeService _service;
 
+  private IdService _idService;
+
   private LifecycleService _lifecycleService;
 
   @Inject
@@ -111,6 +115,11 @@ public class SiriToGtfsRealtimeMain {
   @Inject
   public void setSiriToGtfsRealtimeService(SiriToGtfsRealtimeService service) {
     _service = service;
+  }
+
+  @Inject
+  public void setIdService(IdService idService) {
+    _idService = idService;
   }
 
   @Inject
@@ -162,6 +171,7 @@ public class SiriToGtfsRealtimeMain {
     options.addOption(ARG_ALERTS_URL, true, "alerts url");
     options.addOption(ARG_UPDATE_FREQUENCY, true, "update frequency");
     options.addOption(ARG_STALE_DATA_THRESHOLD, true, "stale data threshold");
+    options.addOption(ARG_STRIP_ID_PREFIX, true, "strip id prefix");
     options.addOption(ARG_LOG_RAW_XML, true, "log raw xml");
     options.addOption(ARG_FORMAT_OUTPUT_XML, false, "format output xml");
     options.addOption(ARG_PRODUCER_PRIORITIES, true, "producer priorities");
@@ -255,6 +265,10 @@ public class SiriToGtfsRealtimeMain {
         producerPriorities.put(key, value);
       }
       _service.setProducerPriorities(producerPriorities);
+    }
+    if (cli.hasOption(ARG_STRIP_ID_PREFIX)) {
+      String stripIdPrefix = cli.getOptionValue(ARG_STRIP_ID_PREFIX);
+      _idService.setStripIdPrefix(stripIdPrefix);
     }
 
     if (cli.hasOption(ARG_LOG_RAW_XML)) {

@@ -17,6 +17,7 @@ package org.onebusaway.gtfs_realtime.siri;
 
 import java.util.List;
 
+import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import org.onebusaway.collections.CollectionsLibrary;
@@ -55,6 +56,13 @@ import com.google.transit.realtime.GtfsRealtime.TripDescriptor;
 public class AlertFactory {
 
   private static final Logger _log = LoggerFactory.getLogger(AlertFactory.class);
+
+  private IdService _idService;
+
+  @Inject
+  public void setIdService(IdService idService) {
+    _idService = idService;
+  }
 
   public Alert.Builder createAlertFromSituation(
       PtSituationElementStructure ptSituation) {
@@ -178,7 +186,7 @@ public class AlertFactory {
         OperatorRefStructure operatorRef = operator.getOperatorRef();
         if (operatorRef == null || operatorRef.getValue() == null)
           continue;
-        String agencyId = operatorRef.getValue();
+        String agencyId = _idService.id(operatorRef.getValue());
         EntitySelector.Builder selector = EntitySelector.newBuilder();
         selector.setAgencyId(agencyId);
         serviceAlert.addInformedEntity(selector);
@@ -194,7 +202,7 @@ public class AlertFactory {
         StopPointRefStructure stopRef = stopPoint.getStopPointRef();
         if (stopRef == null || stopRef.getValue() == null)
           continue;
-        String stopId = stopRef.getValue();
+        String stopId = _idService.id(stopRef.getValue());
         EntitySelector.Builder selector = EntitySelector.newBuilder();
         selector.setStopId(stopId);
         serviceAlert.addInformedEntity(selector);
@@ -210,7 +218,7 @@ public class AlertFactory {
         EntitySelector.Builder selector = EntitySelector.newBuilder();
 
         if (vj.getLineRef() != null) {
-          String routeId = vj.getLineRef().getValue();
+          String routeId = _idService.id(vj.getLineRef().getValue());
           selector.setRouteId(routeId);
         }
 
@@ -226,19 +234,19 @@ public class AlertFactory {
             serviceAlert.addInformedEntity(selector);
         } else if (hasTripRefs && hasStopRefs) {
           for (VehicleJourneyRefStructure vjRef : vj.getVehicleJourneyRef()) {
-            String tripId = vjRef.getValue();
+            String tripId = _idService.id(vjRef.getValue());
             TripDescriptor.Builder tripDescriptor = TripDescriptor.newBuilder();
             tripDescriptor.setTripId(tripId);
             selector.setTrip(tripDescriptor);
             for (AffectedCallStructure call : stopRefs.getCall()) {
-              String stopId = call.getStopPointRef().getValue();
+              String stopId = _idService.id(call.getStopPointRef().getValue());
               selector.setStopId(stopId);
               serviceAlert.addInformedEntity(selector);
             }
           }
         } else if (hasTripRefs) {
           for (VehicleJourneyRefStructure vjRef : vj.getVehicleJourneyRef()) {
-            String tripId = vjRef.getValue();
+            String tripId = _idService.id(vjRef.getValue());
             TripDescriptor.Builder tripDescriptor = TripDescriptor.newBuilder();
             tripDescriptor.setTripId(tripId);
             selector.setTrip(tripDescriptor);
@@ -246,7 +254,7 @@ public class AlertFactory {
           }
         } else {
           for (AffectedCallStructure call : stopRefs.getCall()) {
-            String stopId = call.getStopPointRef().getValue();
+            String stopId = _idService.id(call.getStopPointRef().getValue());
             selector.setStopId(stopId);
             serviceAlert.addInformedEntity(selector);
           }

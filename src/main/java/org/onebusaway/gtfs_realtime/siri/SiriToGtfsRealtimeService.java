@@ -84,6 +84,8 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
 
   private AlertFactory _alertFactory;
 
+  private IdService _idService;
+
   private ScheduledExecutorService _executor;
 
   private ServiceDeliveryHandlerImpl _serviceDeliveryHandler = new ServiceDeliveryHandlerImpl();
@@ -129,6 +131,11 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
   @Inject
   public void setAlertFactory(AlertFactory alertFactory) {
     _alertFactory = alertFactory;
+  }
+
+  @Inject
+  public void setIdService(IdService idService) {
+    _idService = idService;
   }
 
   @Inject
@@ -405,7 +412,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
 
     StopTimeUpdate.Builder stopTimeUpdate = StopTimeUpdate.newBuilder();
     stopTimeUpdate.setDeparture(stopTimeEvent);
-    stopTimeUpdate.setStopId(stopPointRef.getValue());
+    stopTimeUpdate.setStopId(_idService.id(stopPointRef.getValue()));
     tripUpdate.addStopTimeUpdate(stopTimeUpdate);
   }
 
@@ -488,7 +495,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
       Alert.Builder alert = _alertFactory.createAlertFromSituation(situation);
 
       FeedEntity.Builder entity = FeedEntity.newBuilder();
-      entity.setId(getNextFeedEntityId());
+      entity.setId(situation.getSituationNumber().getValue());
 
       if (data.getProducer() != null)
         entity.setExtension(GtfsRealtimeOneBusAway.source, data.getProducer());
@@ -510,7 +517,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
       PtSituationElementStructure situation) {
 
     List<ValidityPeriod> periods = situation.getValidityPeriod();
-    if (periods == null || periods.isEmpty() ) {
+    if (periods == null || periods.isEmpty()) {
       return true;
     }
 
@@ -554,7 +561,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
   private TripDescriptor getKeyAsTripDescriptor(TripAndVehicleKey key) {
 
     TripDescriptor.Builder td = TripDescriptor.newBuilder();
-    td.setTripId(key.getTripId());
+    td.setTripId(_idService.id(key.getTripId()));
 
     return td.build();
   }
@@ -565,7 +572,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
       return null;
 
     VehicleDescriptor.Builder vd = VehicleDescriptor.newBuilder();
-    vd.setId(key.getVehicleId());
+    vd.setId(_idService.id(key.getVehicleId()));
     return vd.build();
   }
 
