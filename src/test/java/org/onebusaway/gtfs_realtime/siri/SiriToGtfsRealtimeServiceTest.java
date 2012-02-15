@@ -69,6 +69,8 @@ public class SiriToGtfsRealtimeServiceTest {
 
     _client = Mockito.mock(SiriClient.class);
     _service.setClient(_client);
+    
+    _service.setIdService(new IdService());
   }
 
   @Test
