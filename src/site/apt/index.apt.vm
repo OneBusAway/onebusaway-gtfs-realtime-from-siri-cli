@@ -52,6 +52,8 @@ java -jar onebusaway-gtfs-realtime-from-siri-cli.jar [-args] request [request ..
   * <<<--staleDataThreshold time>>> - how long before a SIRI vehicle update is considered stale, in seconds (default=5m)
   
   * <<<--producerPriorities=...>>> - priorities when merging data for same vehicle from multiple siri endpoints (pA=1,pB=2,...)
+
+  * <<<--stripIdPrefix=prefix>>> - strip the specified prefix from GTFS ids in the GTFS-realtime output
   
 * Exporting GTFS-realtime
 
