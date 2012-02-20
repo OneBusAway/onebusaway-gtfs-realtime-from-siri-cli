@@ -184,12 +184,14 @@ public class SiriToGtfsRealtimeMain {
   private void ensureMinimalArgs(CommandLine cli) {
 
     boolean hasShareUrls = cli.hasOption(ARG_TRIP_UPDATES_URL)
-        || cli.hasOption(ARG_VEHICLE_POSITIONS_URL);
+        || cli.hasOption(ARG_VEHICLE_POSITIONS_URL)
+        || cli.hasOption(ARG_ALERTS_URL);
     boolean hasSharePaths = cli.hasOption(ARG_TRIP_UPDATES_PATH)
-        || cli.hasOption(ARG_VEHICLE_POSITIONS_PATH);
+        || cli.hasOption(ARG_VEHICLE_POSITIONS_PATH)
+        || cli.hasOption(ARG_ALERTS_PATH);
 
     if (!(hasShareUrls || hasSharePaths)) {
-      System.err.println("ERROR: You did not specify a trip updates or vehicle positions output file or url.");
+      System.err.println("ERROR: You did not specify a trip updates, vehicle positions, or alerts output file or url.");
       printUsage();
       System.exit(-1);
     }
