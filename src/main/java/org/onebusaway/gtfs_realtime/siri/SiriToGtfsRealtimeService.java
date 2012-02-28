@@ -39,6 +39,7 @@ import org.onebusaway.siri.core.SiriClient;
 import org.onebusaway.siri.core.SiriClientRequest;
 import org.onebusaway.siri.core.exceptions.SiriMissingArgumentException;
 import org.onebusaway.siri.core.handlers.SiriServiceDeliveryHandler;
+import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeLibrary;
 import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,10 +61,8 @@ import uk.org.siri.siri.VehicleRefStructure;
 import uk.org.siri.siri.WorkflowStatusEnumeration;
 
 import com.google.inject.name.Named;
-import com.google.transit.realtime.GtfsRealtime.FeedEntity;
-import com.google.transit.realtime.GtfsRealtime.FeedHeader;
-import com.google.transit.realtime.GtfsRealtime.FeedHeader.Incrementality;
 import com.google.transit.realtime.GtfsRealtime.Alert;
+import com.google.transit.realtime.GtfsRealtime.FeedEntity;
 import com.google.transit.realtime.GtfsRealtime.FeedMessage;
 import com.google.transit.realtime.GtfsRealtime.Position;
 import com.google.transit.realtime.GtfsRealtime.TripDescriptor;
@@ -72,7 +71,6 @@ import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeEvent;
 import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
 import com.google.transit.realtime.GtfsRealtime.VehicleDescriptor;
 import com.google.transit.realtime.GtfsRealtime.VehiclePosition;
-import com.google.transit.realtime.GtfsRealtimeConstants;
 import com.google.transit.realtime.GtfsRealtimeOneBusAway;
 
 @Singleton
@@ -114,14 +112,11 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
 
   private Server _server;
 
-  private volatile FeedMessage _tripUpdatesMessage = createFeedMessageBuilderWithHeader(
-      System.currentTimeMillis()).build();
+  private volatile FeedMessage _tripUpdatesMessage = GtfsRealtimeLibrary.createFeedMessageBuilder().build();
 
-  private volatile FeedMessage _vehiclePositionsMessage = createFeedMessageBuilderWithHeader(
-      System.currentTimeMillis()).build();
+  private volatile FeedMessage _vehiclePositionsMessage = GtfsRealtimeLibrary.createFeedMessageBuilder().build();
 
-  private volatile FeedMessage _alertsMessage = createFeedMessageBuilderWithHeader(
-      System.currentTimeMillis()).build();
+  private volatile FeedMessage _alertsMessage = GtfsRealtimeLibrary.createFeedMessageBuilder().build();
 
   @Inject
   public void setClient(SiriClient client) {
@@ -342,9 +337,9 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
   }
 
   private void writeTripUpdates() throws IOException {
-
-    long feedTimestamp = System.currentTimeMillis();
-    FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilderWithHeader(feedTimestamp);
+    
+    FeedMessage.Builder feedMessageBuilder = GtfsRealtimeLibrary.createFeedMessageBuilder();
+    long feedTimestamp = feedMessageBuilder.getHeader().getTimestamp() * 1000;
 
     Date durationOffset = new Date(feedTimestamp);
 
@@ -376,7 +371,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
       Date time = activity.getRecordedAtTime();
       if (time == null)
         time = new Date(feedTimestamp);
-      tripUpdate.setExtension(GtfsRealtimeOneBusAway.timestamp, time.getTime());
+      tripUpdate.setExtension(GtfsRealtimeOneBusAway.timestamp, time.getTime() / 1000);
 
       applyStopSpecificDelayToTripUpdateIfApplicable(mvj, delayInSeconds,
           tripUpdate);
@@ -418,8 +413,8 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
 
   private void writeVehiclePositions() throws IOException {
 
-    long feedTimestamp = System.currentTimeMillis();
-    FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilderWithHeader(feedTimestamp);
+    FeedMessage.Builder feedMessageBuilder = GtfsRealtimeLibrary.createFeedMessageBuilder();
+    long feedTimestamp = feedMessageBuilder.getHeader().getTimestamp() * 1000;
 
     for (Iterator<VehicleData> it = _dataByVehicle.values().iterator(); it.hasNext();) {
       VehicleData data = it.next();
@@ -448,7 +443,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
         Date time = activity.getRecordedAtTime();
         if (time == null)
           time = new Date(feedTimestamp);
-        vp.setTimestamp(time.getTime());
+        vp.setTimestamp(time.getTime() / 1000);
 
         Position.Builder position = Position.newBuilder();
         position.setLatitude(location.getLatitude().floatValue());
@@ -469,8 +464,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
   }
 
   private void writeAlerts() {
-    long feedTimestamp = System.currentTimeMillis();
-    FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilderWithHeader(feedTimestamp);
+    FeedMessage.Builder feedMessageBuilder = GtfsRealtimeLibrary.createFeedMessageBuilder();
 
     for (AlertData data : _alertDataById.values()) {
 
@@ -574,19 +568,6 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
     VehicleDescriptor.Builder vd = VehicleDescriptor.newBuilder();
     vd.setId(_idService.id(key.getVehicleId()));
     return vd.build();
-  }
-
-  private static FeedMessage.Builder createFeedMessageBuilderWithHeader(
-      long feedTimestamp) {
-
-    FeedHeader.Builder header = FeedHeader.newBuilder();
-    header.setTimestamp(feedTimestamp);
-    header.setIncrementality(Incrementality.FULL_DATASET);
-    header.setGtfsRealtimeVersion(GtfsRealtimeConstants.VERSION);
-
-    FeedMessage.Builder feedMessageBuilder = FeedMessage.newBuilder();
-    feedMessageBuilder.setHeader(header);
-    return feedMessageBuilder;
   }
 
   /****
