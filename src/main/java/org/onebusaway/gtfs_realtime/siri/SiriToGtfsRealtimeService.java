@@ -412,12 +412,12 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
 
   private String getTripIdForKey(TripAndVehicleKey key) {
     StringBuilder b = new StringBuilder();
-    b.append(key.getTripId());
+    b.append(_idService.id(key.getTripId()));
     b.append('-');
-    b.append(key.getServiceDate());
+    b.append(_idService.id(key.getServiceDate()));
     if (key.getVehicleId() != null) {
       b.append('-');
-      b.append(key.getVehicleId());
+      b.append(_idService.id(key.getVehicleId()));
     }
     return b.toString();
   }
@@ -476,9 +476,10 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
 
   private String getVehicleIdForKey(TripAndVehicleKey key) {
     if (key.getVehicleId() != null) {
-      return key.getVehicleId();
+      return _idService.id(key.getVehicleId());
     }
-    return key.getTripId() + "-" + key.getServiceDate();
+    return _idService.id(key.getTripId()) + "-"
+        + _idService.id(key.getServiceDate());
   }
 
   private void writeAlerts() {
