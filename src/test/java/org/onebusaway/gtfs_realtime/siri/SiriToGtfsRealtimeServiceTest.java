@@ -215,7 +215,7 @@ public class SiriToGtfsRealtimeServiceTest {
     FeedHeader header = feed.getHeader();
     assertEquals(GtfsRealtimeConstants.VERSION, header.getGtfsRealtimeVersion());
     assertEquals(Incrementality.FULL_DATASET, header.getIncrementality());
-    assertEquals((double) System.currentTimeMillis(), header.getTimestamp(),
+    assertEquals((double) (System.currentTimeMillis()/1000), header.getTimestamp(),
         350);
   }
 }
