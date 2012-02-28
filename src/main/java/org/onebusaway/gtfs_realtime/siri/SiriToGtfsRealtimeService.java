@@ -94,8 +94,6 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
 
   private Map<String, AlertData> _alertDataById = new HashMap<String, AlertData>();
 
-  private long _idIndex = 0;
-
   private List<SiriClientRequest> _clientRequests = new ArrayList<SiriClientRequest>();
 
   /**
@@ -337,7 +335,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
   }
 
   private void writeTripUpdates() throws IOException {
-    
+
     FeedMessage.Builder feedMessageBuilder = GtfsRealtimeLibrary.createFeedMessageBuilder();
     long feedTimestamp = feedMessageBuilder.getHeader().getTimestamp() * 1000;
 
@@ -371,14 +369,15 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
       Date time = activity.getRecordedAtTime();
       if (time == null)
         time = new Date(feedTimestamp);
-      tripUpdate.setExtension(GtfsRealtimeOneBusAway.timestamp, time.getTime() / 1000);
+      tripUpdate.setExtension(GtfsRealtimeOneBusAway.timestamp,
+          time.getTime() / 1000);
 
       applyStopSpecificDelayToTripUpdateIfApplicable(mvj, delayInSeconds,
           tripUpdate);
       tripUpdate.setExtension(GtfsRealtimeOneBusAway.delay, delayInSeconds);
 
       FeedEntity.Builder entity = FeedEntity.newBuilder();
-      entity.setId(getNextFeedEntityId());
+      entity.setId(getTripIdForKey(key));
       if (data.getProducer() != null)
         entity.setExtension(GtfsRealtimeOneBusAway.source, data.getProducer());
 
@@ -409,6 +408,18 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
     stopTimeUpdate.setDeparture(stopTimeEvent);
     stopTimeUpdate.setStopId(_idService.id(stopPointRef.getValue()));
     tripUpdate.addStopTimeUpdate(stopTimeUpdate);
+  }
+
+  private String getTripIdForKey(TripAndVehicleKey key) {
+    StringBuilder b = new StringBuilder();
+    b.append(key.getTripId());
+    b.append('-');
+    b.append(key.getServiceDate());
+    if (key.getVehicleId() != null) {
+      b.append('-');
+      b.append(key.getVehicleId());
+    }
+    return b.toString();
   }
 
   private void writeVehiclePositions() throws IOException {
@@ -451,7 +462,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
         vp.setPosition(position);
 
         FeedEntity.Builder entity = FeedEntity.newBuilder();
-        entity.setId(getNextFeedEntityId());
+        entity.setId(getVehicleIdForKey(key));
         if (data.getProducer() != null)
           entity.setExtension(GtfsRealtimeOneBusAway.source, data.getProducer());
 
@@ -461,6 +472,13 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
     }
 
     _vehiclePositionsMessage = feedMessageBuilder.build();
+  }
+
+  private String getVehicleIdForKey(TripAndVehicleKey key) {
+    if (key.getVehicleId() != null) {
+      return key.getVehicleId();
+    }
+    return key.getTripId() + "-" + key.getServiceDate();
   }
 
   private void writeAlerts() {
@@ -546,10 +564,6 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
 
   private boolean isDataStale(VehicleData data, long currentTime) {
     return data.getTimestamp() + _staleDataThreshold * 1000 < currentTime;
-  }
-
-  private String getNextFeedEntityId() {
-    return Long.toString(_idIndex++);
   }
 
   private TripDescriptor getKeyAsTripDescriptor(TripAndVehicleKey key) {

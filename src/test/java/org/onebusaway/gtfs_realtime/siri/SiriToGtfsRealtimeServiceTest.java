@@ -152,6 +152,7 @@ public class SiriToGtfsRealtimeServiceTest {
     assertEquals(1, tripUpdatesFeed.getEntityCount());
 
     FeedEntity tripEntity = tripUpdatesFeed.getEntity(0);
+    assertEquals("MyFavoriteTrip-2011-08-23-MyFavoriteBus", tripEntity.getId());
     assertFalse(tripEntity.hasAlert());
     assertFalse(tripEntity.hasVehicle());
     assertFalse(tripEntity.getIsDeleted());
@@ -178,6 +179,7 @@ public class SiriToGtfsRealtimeServiceTest {
     assertEquals(1, vehiclePositionFeed.getEntityCount());
 
     FeedEntity vehicleEntity = vehiclePositionFeed.getEntity(0);
+    assertEquals("MyFavoriteBus", vehicleEntity.getId());
     assertFalse(vehicleEntity.hasAlert());
     assertFalse(vehicleEntity.hasTripUpdate());
     VehiclePosition vehiclePosition = vehicleEntity.getVehicle();

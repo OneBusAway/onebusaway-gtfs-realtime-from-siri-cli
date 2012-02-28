@@ -13,7 +13,7 @@
   <url>https://github.com/OneBusAway/onebusaway-gtfs-realtime-from-siri-cli/wiki/</url>
   
   <properties>
-    <onebusaway_siri_version>1.0.4-SNAPSHOT</onebusaway_siri_version>
+    <onebusaway_siri_version>1.0.4</onebusaway_siri_version>
     <gtfs_realtime_api_version>1.0.3</gtfs_realtime_api_version>
   </properties>
 
@@ -63,7 +63,7 @@
     <dependency>
       <groupId>org.onebusaway</groupId>
       <artifactId>onebusaway-cli</artifactId>
-      <version>1.0.1-SNAPSHOT</version>
+      <version>1.0.1</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
