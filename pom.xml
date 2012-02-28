@@ -14,7 +14,7 @@
   
   <properties>
     <onebusaway_siri_version>1.0.4-SNAPSHOT</onebusaway_siri_version>
-    <gtfs_realtime_api_version>1.0.3-SNAPSHOT</gtfs_realtime_api_version>
+    <gtfs_realtime_api_version>1.0.3</gtfs_realtime_api_version>
   </properties>
 
   <repositories>
