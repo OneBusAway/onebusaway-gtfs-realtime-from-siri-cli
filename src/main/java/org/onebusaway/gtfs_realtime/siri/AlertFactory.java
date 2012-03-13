@@ -97,9 +97,9 @@ public class AlertFactory {
       HalfOpenTimestampRangeStructure window = ptSituation.getPublicationWindow();
       TimeRange.Builder range = TimeRange.newBuilder();
       if (window.getStartTime() != null)
-        range.setStart(window.getStartTime().getTime());
+        range.setStart(window.getStartTime().getTime() / 1000);
       if (window.getEndTime() != null)
-        range.setEnd(window.getEndTime().getTime());
+        range.setEnd(window.getEndTime().getTime() / 1000);
       if (range.hasStart() || range.hasEnd())
         serviceAlert.addActivePeriod(range);
     }
