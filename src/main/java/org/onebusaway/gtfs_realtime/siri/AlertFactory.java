@@ -329,6 +329,8 @@ public class AlertFactory {
     String value = text.getValue();
     if (value == null)
       return null;
+    
+    value = value.replaceAll("\\s+", " ");
 
     Translation.Builder translation = Translation.newBuilder();
     translation.setText(value);
