@@ -37,6 +37,7 @@ import org.mortbay.jetty.Server;
 import org.onebusaway.siri.core.SiriChannelInfo;
 import org.onebusaway.siri.core.SiriClient;
 import org.onebusaway.siri.core.SiriClientRequest;
+import org.onebusaway.siri.core.SiriLibrary;
 import org.onebusaway.siri.core.exceptions.SiriMissingArgumentException;
 import org.onebusaway.siri.core.handlers.SiriServiceDeliveryHandler;
 import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeLibrary;
@@ -49,7 +50,6 @@ import uk.org.siri.siri.FramedVehicleJourneyRefStructure;
 import uk.org.siri.siri.LocationStructure;
 import uk.org.siri.siri.MonitoredCallStructure;
 import uk.org.siri.siri.PtSituationElementStructure;
-import uk.org.siri.siri.RoadSituationElementStructure.ValidityPeriod;
 import uk.org.siri.siri.ServiceDelivery;
 import uk.org.siri.siri.SituationExchangeDeliveryStructure;
 import uk.org.siri.siri.SituationExchangeDeliveryStructure.Situations;
@@ -58,7 +58,6 @@ import uk.org.siri.siri.VehicleActivityStructure;
 import uk.org.siri.siri.VehicleActivityStructure.MonitoredVehicleJourney;
 import uk.org.siri.siri.VehicleMonitoringDeliveryStructure;
 import uk.org.siri.siri.VehicleRefStructure;
-import uk.org.siri.siri.WorkflowStatusEnumeration;
 
 import com.google.inject.name.Named;
 import com.google.transit.realtime.GtfsRealtime.Alert;
@@ -88,7 +87,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
 
   private ServiceDeliveryHandlerImpl _serviceDeliveryHandler = new ServiceDeliveryHandlerImpl();
 
-  private BlockingQueue<ServiceDelivery> _deliveries = new LinkedBlockingQueue<ServiceDelivery>();
+  private BlockingQueue<Delivery> _deliveries = new LinkedBlockingQueue<Delivery>();
 
   private Map<TripAndVehicleKey, VehicleData> _dataByVehicle = new HashMap<TripAndVehicleKey, VehicleData>();
 
@@ -206,15 +205,16 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
 
   private void processQueue() throws IOException {
 
-    List<ServiceDelivery> deliveries = new ArrayList<ServiceDelivery>();
+    List<Delivery> deliveries = new ArrayList<Delivery>();
     _deliveries.drainTo(deliveries);
 
-    for (ServiceDelivery delivery : deliveries) {
-      for (VehicleMonitoringDeliveryStructure vmDelivery : delivery.getVehicleMonitoringDelivery()) {
+    for (Delivery delivery : deliveries) {
+      ServiceDelivery serviceDelivery = delivery.serviceDelivery;
+      for (VehicleMonitoringDeliveryStructure vmDelivery : serviceDelivery.getVehicleMonitoringDelivery()) {
         for (VehicleActivityStructure vehicleActivity : vmDelivery.getVehicleActivity()) {
 
           try {
-            processVehicleActivity(delivery, vehicleActivity);
+            processVehicleActivity(serviceDelivery, vehicleActivity);
           } catch (SiriMissingArgumentException ex) {
             /**
              * Maybe we should just let the exception kill the process? If
@@ -225,13 +225,13 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
           }
         }
       }
-      for (SituationExchangeDeliveryStructure sxDelivery : delivery.getSituationExchangeDelivery()) {
+      for (SituationExchangeDeliveryStructure sxDelivery : serviceDelivery.getSituationExchangeDelivery()) {
         Situations situations = sxDelivery.getSituations();
         if (situations == null) {
           continue;
         }
         for (PtSituationElementStructure situation : situations.getPtSituationElement()) {
-          processSituation(delivery, situation);
+          processSituation(delivery.channelInfo, serviceDelivery, situation);
         }
       }
     }
@@ -293,20 +293,6 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
     _dataByVehicle.put(key, data);
   }
 
-  private void processSituation(ServiceDelivery delivery,
-      PtSituationElementStructure situation) {
-    EntryQualifierStructure situationNumber = situation.getSituationNumber();
-    if (situationNumber == null || situationNumber.getValue() == null) {
-      _log.warn("PtSituationElement did not specify a SituationNumber");
-    }
-    String id = situationNumber.getValue();
-    String producer = null;
-    if (delivery.getProducerRef() != null)
-      producer = delivery.getProducerRef().getValue();
-    AlertData data = new AlertData(situation, producer);
-    _alertDataById.put(id, data);
-  }
-
   private boolean isProducerOfHigherPriorityThanExistingData(
       TripAndVehicleKey key, String producer) {
     VehicleData data = _dataByVehicle.get(key);
@@ -326,6 +312,58 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
       return -1;
     }
     return priority;
+  }
+
+  private void processSituation(SiriChannelInfo channelInfo,
+      ServiceDelivery delivery, PtSituationElementStructure situation) {
+    EntryQualifierStructure situationNumber = situation.getSituationNumber();
+    if (situationNumber == null || situationNumber.getValue() == null) {
+      _log.warn("PtSituationElement did not specify a SituationNumber");
+    }
+    String id = situationNumber.getValue();
+    String producer = null;
+    if (delivery.getProducerRef() != null)
+      producer = delivery.getProducerRef().getValue();
+    Date expirationTime = getExpirtationTimeForChannel(channelInfo);
+    AlertData data = new AlertData(situation, producer, expirationTime);
+    _alertDataById.put(id, data);
+  }
+
+  /**
+   * If a service delivery is from a polling request-response connection, an
+   * endpoint might indicate that a particular vehicle or alert is no longer
+   * active simply by no longer including it in a response. We need some way of
+   * distinguishing this case from a pub-sub connection, where we might see an
+   * alert once initially without any follow-up updates, even though the alert
+   * is still active.
+   * 
+   * We examine the {@link SiriClientRequest} in the {@link SiriChannelInfo} to
+   * determine if the request is a polling request-response connection (see
+   * {@link SiriClientRequest#isSubscribe()} and
+   * {@link SiriClientRequest#getPollInterval()}). If true, we compute an
+   * expiration time for the service delivery based on the current time and the
+   * poll interval.
+   * 
+   * @param channelInfo
+   * @return the service delivery expiration time, or null if not applicable
+   */
+  private Date getExpirtationTimeForChannel(SiriChannelInfo channelInfo) {
+    List<SiriClientRequest> requests = channelInfo.getSiriClientRequests();
+    if (requests.isEmpty()) {
+      return null;
+    }
+    Date exprirationTime = null;
+    for (SiriClientRequest request : requests) {
+      if (request.isSubscribe()) {
+        return null;
+      }
+      Date date = new Date(
+          (long) ((1.5 * request.getPollInterval() * 1000) + System.currentTimeMillis()));
+      if (exprirationTime == null || exprirationTime.before(date)) {
+        exprirationTime = date;
+      }
+    }
+    return exprirationTime;
   }
 
   private void writeOutput() throws IOException {
@@ -485,23 +523,29 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
   private void writeAlerts() {
     FeedMessage.Builder feedMessageBuilder = GtfsRealtimeLibrary.createFeedMessageBuilder();
 
-    for (AlertData data : _alertDataById.values()) {
+    Date now = new Date();
+
+    for (Iterator<AlertData> it = _alertDataById.values().iterator(); it.hasNext();) {
+      AlertData data = it.next();
 
       PtSituationElementStructure situation = data.getSituation();
 
       /**
-       * If the situation has been closed, we no longer show the alert in the
-       * GTFS-realtime feed.
+       * If the situation has been closed or has expired, we no longer show the
+       * alert in the GTFS-realtime feed.
        */
-      if (isSituationClosed(situation)) {
+      if (SiriLibrary.isSituationClosed(situation)
+          || SiriLibrary.isSituationExpired(situation, now)
+          || isAlertDataExpired(data)) {
+        it.remove();
         continue;
       }
 
       /**
-       * If the situation is no longer in a valid period, we no longer show the
-       * alert in the GTFS-realtime feed.
+       * If the situation is not in a valid period, we no longer show the alert
+       * in the GTFS-realtime feed.
        */
-      if (!isSituationPeriodCurrentlyValid(situation)) {
+      if (!SiriLibrary.isSituationPublishedOrValid(situation, now)) {
         continue;
       }
 
@@ -520,47 +564,11 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
     _alertsMessage = feedMessageBuilder.build();
   }
 
-  private boolean isSituationClosed(PtSituationElementStructure situation) {
-    WorkflowStatusEnumeration progress = situation.getProgress();
-    return progress != null
-        && (progress == WorkflowStatusEnumeration.CLOSING || progress == WorkflowStatusEnumeration.CLOSED);
-  }
-
-  private boolean isSituationPeriodCurrentlyValid(
-      PtSituationElementStructure situation) {
-
-    List<ValidityPeriod> periods = situation.getValidityPeriod();
-    if (periods == null || periods.isEmpty()) {
-      return true;
+  public boolean isAlertDataExpired(AlertData data) {
+    if (data.getExpirtationTime() == null) {
+      return false;
     }
-
-    Date now = new Date();
-
-    for (ValidityPeriod period : periods) {
-      Date startTime = period.getStartTime();
-      Date endTime = period.getEndTime();
-      if (startTime == null) {
-        _log.warn("expected ValidityPeriod StartTime to be specified for situation "
-            + situation.getSituationNumber().getValue());
-      }
-      if (startTime == null && endTime == null) {
-        continue;
-      } else if (startTime == null) {
-        if (now.before(endTime)) {
-          return true;
-        }
-      } else if (endTime == null) {
-        if (startTime.before(now)) {
-          return true;
-        }
-      } else {
-        if (startTime.before(now) && now.before(endTime)) {
-          return true;
-        }
-      }
-    }
-
-    return false;
+    return data.getExpirtationTime().before(new Date());
   }
 
   private boolean isDataStale(VehicleData data, long currentTime) {
@@ -596,7 +604,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
     public void handleServiceDelivery(SiriChannelInfo channelInfo,
         ServiceDelivery serviceDelivery) {
       _log.debug("delivery: channel={}", channelInfo.getContext());
-      _deliveries.add(serviceDelivery);
+      _deliveries.add(new Delivery(channelInfo, serviceDelivery));
     }
   }
 
@@ -609,6 +617,16 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
       } catch (Throwable ex) {
         _log.error("error processing incoming SIRI data", ex);
       }
+    }
+  }
+
+  private static final class Delivery {
+    public final SiriChannelInfo channelInfo;
+    public final ServiceDelivery serviceDelivery;
+
+    public Delivery(SiriChannelInfo channelInfo, ServiceDelivery serviceDelivery) {
+      this.channelInfo = channelInfo;
+      this.serviceDelivery = serviceDelivery;
     }
   }
 }

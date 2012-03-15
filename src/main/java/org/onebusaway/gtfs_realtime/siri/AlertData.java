@@ -15,6 +15,8 @@
  */
 package org.onebusaway.gtfs_realtime.siri;
 
+import java.util.Date;
+
 import uk.org.siri.siri.PtSituationElementStructure;
 
 public class AlertData {
@@ -22,9 +24,13 @@ public class AlertData {
 
   private final String producer;
 
-  public AlertData(PtSituationElementStructure situation, String producer) {
+  private final Date expirationTime;
+
+  public AlertData(PtSituationElementStructure situation, String producer,
+      Date expirationTime) {
     this.situation = situation;
     this.producer = producer;
+    this.expirationTime = expirationTime;
   }
 
   public PtSituationElementStructure getSituation() {
@@ -33,5 +39,9 @@ public class AlertData {
 
   public String getProducer() {
     return producer;
+  }
+
+  public Date getExpirtationTime() {
+    return expirationTime;
   }
 }

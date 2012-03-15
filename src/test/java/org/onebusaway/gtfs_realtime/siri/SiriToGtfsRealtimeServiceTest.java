@@ -17,6 +17,7 @@ package org.onebusaway.gtfs_realtime.siri;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -30,17 +31,23 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.onebusaway.siri.core.SiriChannelInfo;
 import org.onebusaway.siri.core.SiriClient;
+import org.onebusaway.siri.core.SiriClientRequest;
 import org.onebusaway.siri.core.SiriTypeFactory;
 import org.onebusaway.siri.core.handlers.SiriServiceDeliveryHandler;
 
 import uk.org.siri.siri.FramedVehicleJourneyRefStructure;
 import uk.org.siri.siri.LocationStructure;
 import uk.org.siri.siri.MonitoredCallStructure;
+import uk.org.siri.siri.PtSituationElementStructure;
 import uk.org.siri.siri.ServiceDelivery;
+import uk.org.siri.siri.SituationExchangeDeliveryStructure;
+import uk.org.siri.siri.SituationExchangeDeliveryStructure.Situations;
 import uk.org.siri.siri.VehicleActivityStructure;
 import uk.org.siri.siri.VehicleActivityStructure.MonitoredVehicleJourney;
 import uk.org.siri.siri.VehicleMonitoringDeliveryStructure;
 
+import com.google.transit.realtime.GtfsRealtime.Alert;
+import com.google.transit.realtime.GtfsRealtime.Alert.Effect;
 import com.google.transit.realtime.GtfsRealtime.FeedEntity;
 import com.google.transit.realtime.GtfsRealtime.FeedHeader;
 import com.google.transit.realtime.GtfsRealtime.FeedHeader.Incrementality;
@@ -59,6 +66,7 @@ public class SiriToGtfsRealtimeServiceTest {
   private SiriToGtfsRealtimeService _service;
   private ScheduledExecutorService _executor;
   private SiriClient _client;
+  private AlertFactory _alertFactory;
 
   @Before
   public void setup() throws IOException {
@@ -69,7 +77,10 @@ public class SiriToGtfsRealtimeServiceTest {
 
     _client = Mockito.mock(SiriClient.class);
     _service.setClient(_client);
-    
+
+    _alertFactory = Mockito.mock(AlertFactory.class);
+    _service.setAlertFactory(_alertFactory);
+
     _service.setIdService(new IdService());
   }
 
@@ -213,11 +224,97 @@ public class SiriToGtfsRealtimeServiceTest {
 
   }
 
+  @Test
+  public void testPollingServiceAlert() throws Exception {
+
+    _service.start();
+
+    ArgumentCaptor<Runnable> writeTaskCaptor = ArgumentCaptor.forClass(Runnable.class);
+    Mockito.verify(_executor).scheduleAtFixedRate(writeTaskCaptor.capture(),
+        Mockito.eq(0L), Mockito.anyInt(), Mockito.eq(TimeUnit.SECONDS));
+
+    ArgumentCaptor<SiriServiceDeliveryHandler> handlerCaptor = ArgumentCaptor.forClass(SiriServiceDeliveryHandler.class);
+    Mockito.verify(_client).addServiceDeliveryHandler(handlerCaptor.capture());
+
+    Runnable writeTask = writeTaskCaptor.getValue();
+    SiriServiceDeliveryHandler serviceDeliveryHandler = handlerCaptor.getValue();
+
+    /**
+     * Construct a service delivery with a service alert
+     */
+    SiriChannelInfo channelInfo = new SiriChannelInfo();
+
+    /**
+     * Indicate that our SIRI request is a polling request.
+     */
+    SiriClientRequest request = new SiriClientRequest();
+    request.setSubscribe(false);
+    request.setPollInterval(2);
+    channelInfo.getSiriClientRequests().add(request);
+
+    ServiceDelivery serviceDelivery = new ServiceDelivery();
+
+    SituationExchangeDeliveryStructure sx = new SituationExchangeDeliveryStructure();
+    serviceDelivery.getSituationExchangeDelivery().add(sx);
+
+    Situations situations = new Situations();
+    sx.setSituations(situations);
+
+    PtSituationElementStructure situation = new PtSituationElementStructure();
+    situation.setSituationNumber(SiriTypeFactory.entryQualifier("a1"));
+    situations.getPtSituationElement().add(situation);
+
+    Alert.Builder alertBuilder = Alert.newBuilder();
+    alertBuilder.setEffect(Effect.DETOUR);
+    Mockito.when(_alertFactory.createAlertFromSituation(situation)).thenReturn(
+        alertBuilder);
+
+    serviceDeliveryHandler.handleServiceDelivery(channelInfo, serviceDelivery);
+
+    /**
+     * Write the alerts
+     */
+    writeTask.run();
+
+    /**
+     * Read and verify the alert
+     */
+    FeedMessage alerts = _service.getAlerts();
+    verifyHeader(alerts);
+    assertEquals(1, alerts.getEntityCount());
+
+    FeedEntity alertEntity = alerts.getEntity(0);
+    assertEquals("a1", alertEntity.getId());
+    assertTrue(alertEntity.hasAlert());
+    assertFalse(alertEntity.hasTripUpdate());
+    assertFalse(alertEntity.hasVehicle());
+    assertFalse(alertEntity.getIsDeleted());
+
+    Alert alert = alertEntity.getAlert();
+    assertEquals(Effect.DETOUR, alert.getEffect());
+
+    /**
+     * Sleep for a while longer than the poll request interval.
+     */
+    Thread.sleep(4 * 1000);
+
+    /**
+     * Write the alerts again
+     */
+    writeTask.run();
+
+    /**
+     * Verify that the polled alert has properly expired.
+     */
+    alerts = _service.getAlerts();
+    assertEquals(0, alerts.getEntityCount());
+  }
+
   private void verifyHeader(FeedMessage feed) {
     FeedHeader header = feed.getHeader();
     assertEquals(GtfsRealtimeConstants.VERSION, header.getGtfsRealtimeVersion());
     assertEquals(Incrementality.FULL_DATASET, header.getIncrementality());
-    assertEquals((double) (System.currentTimeMillis()/1000), header.getTimestamp(),
-        350);
+    assertEquals((double) (System.currentTimeMillis() / 1000),
+        header.getTimestamp(), 350);
   }
 }
