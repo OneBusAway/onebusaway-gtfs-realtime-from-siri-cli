@@ -284,7 +284,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
     if (delivery.getProducerRef() != null)
       producer = delivery.getProducerRef().getValue();
 
-    if (!isProducerOfHigherPriorityThanExistingData(key, producer)) {
+    if (isNewDataProducerOfLowerPriorityThanExistingDataProducer(key, producer)) {
       return;
     }
 
@@ -293,14 +293,21 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
     _dataByVehicle.put(key, data);
   }
 
-  private boolean isProducerOfHigherPriorityThanExistingData(
+  private boolean isNewDataProducerOfLowerPriorityThanExistingDataProducer(
       TripAndVehicleKey key, String producer) {
     VehicleData data = _dataByVehicle.get(key);
-    if (data == null)
-      return true;
+    /**
+     * If there is no existing data, then there is no "existing" producer and
+     * the new producer can't be less than nothing. Thus we return false. This
+     * gets us the desired behavior of accepting a new data entry if there is no
+     * existing data entry.
+     */
+    if (data == null) {
+      return false;
+    }
     int existingPriority = getPriorityForProducer(data.getProducer());
     int newPriority = getPriorityForProducer(producer);
-    return existingPriority < newPriority;
+    return newPriority < existingPriority;
   }
 
   private int getPriorityForProducer(String producer) {

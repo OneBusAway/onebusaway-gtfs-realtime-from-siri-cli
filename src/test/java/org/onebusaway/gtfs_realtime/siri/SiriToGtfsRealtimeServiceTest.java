@@ -22,6 +22,8 @@ import static org.junit.Assert.assertTrue;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -308,6 +310,148 @@ public class SiriToGtfsRealtimeServiceTest {
      */
     alerts = _service.getAlerts();
     assertEquals(0, alerts.getEntityCount());
+  }
+
+  @Test
+  public void testProducerPriorities() throws Exception {
+
+    Map<String, Integer> producerPriorities = new HashMap<String, Integer>();
+    producerPriorities.put("low", 5);
+    producerPriorities.put("high", 10);
+    _service.setProducerPriorities(producerPriorities);
+
+    _service.start();
+
+    ArgumentCaptor<Runnable> writeTaskCaptor = ArgumentCaptor.forClass(Runnable.class);
+    Mockito.verify(_executor).scheduleAtFixedRate(writeTaskCaptor.capture(),
+        Mockito.eq(0L), Mockito.anyInt(), Mockito.eq(TimeUnit.SECONDS));
+
+    ArgumentCaptor<SiriServiceDeliveryHandler> handlerCaptor = ArgumentCaptor.forClass(SiriServiceDeliveryHandler.class);
+    Mockito.verify(_client).addServiceDeliveryHandler(handlerCaptor.capture());
+
+    Runnable writeTask = writeTaskCaptor.getValue();
+    SiriServiceDeliveryHandler serviceDeliveryHandler = handlerCaptor.getValue();
+
+    /**
+     * Construct and send a low-priority vehicle activity update
+     */
+    SiriChannelInfo channelInfo = new SiriChannelInfo();
+    ServiceDelivery serviceDelivery = createPrioritizedVehicleActivity("low", 5);
+
+    serviceDeliveryHandler.handleServiceDelivery(channelInfo, serviceDelivery);
+
+    /**
+     * Write the feed and read the results
+     */
+
+    writeTask.run();
+
+    FeedMessage tripUpdatesFeed = _service.getTripUpdates();
+    FeedEntity tripEntity = tripUpdatesFeed.getEntity(0);
+    TripUpdate tripUpdate = tripEntity.getTripUpdate();
+    StopTimeUpdate stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
+    StopTimeEvent stopTimeEvent = stopTimeUpdate.getDeparture();
+    assertEquals(5 * 60, stopTimeEvent.getDelay());
+
+    /**
+     * Send a new update at a higher priority
+     */
+
+    serviceDelivery = createPrioritizedVehicleActivity("high", 6);
+    serviceDeliveryHandler.handleServiceDelivery(channelInfo, serviceDelivery);
+
+    /**
+     * Verify that the higher priority update overwrites the low-priority
+     * update.
+     */
+
+    writeTask.run();
+
+    tripUpdatesFeed = _service.getTripUpdates();
+    tripEntity = tripUpdatesFeed.getEntity(0);
+    tripUpdate = tripEntity.getTripUpdate();
+    stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
+    stopTimeEvent = stopTimeUpdate.getDeparture();
+    assertEquals(6 * 60, stopTimeEvent.getDelay());
+
+    /**
+     * Send a new update at a lower priority
+     */
+
+    serviceDelivery = createPrioritizedVehicleActivity("low", 4);
+    serviceDeliveryHandler.handleServiceDelivery(channelInfo, serviceDelivery);
+
+    /**
+     * Verify that the lower priority update does not overwrite the
+     * high-priority update
+     */
+
+    writeTask.run();
+
+    tripUpdatesFeed = _service.getTripUpdates();
+    tripEntity = tripUpdatesFeed.getEntity(0);
+    tripUpdate = tripEntity.getTripUpdate();
+    stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
+    stopTimeEvent = stopTimeUpdate.getDeparture();
+    assertEquals(6 * 60, stopTimeEvent.getDelay());
+
+    /**
+     * Send a new update at a higher priority
+     */
+
+    serviceDelivery = createPrioritizedVehicleActivity("high", 3);
+    serviceDeliveryHandler.handleServiceDelivery(channelInfo, serviceDelivery);
+
+    /**
+     * Verify that the higher priority update overwrites the existing
+     * high-priority update.
+     */
+
+    writeTask.run();
+
+    tripUpdatesFeed = _service.getTripUpdates();
+    tripEntity = tripUpdatesFeed.getEntity(0);
+    tripUpdate = tripEntity.getTripUpdate();
+    stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
+    stopTimeEvent = stopTimeUpdate.getDeparture();
+    assertEquals(3 * 60, stopTimeEvent.getDelay());
+  }
+
+  private ServiceDelivery createPrioritizedVehicleActivity(String priority, int minutesLate) {
+    
+    ServiceDelivery serviceDelivery = new ServiceDelivery();
+    serviceDelivery.setProducerRef(SiriTypeFactory.particpantRef(priority));
+
+    VehicleMonitoringDeliveryStructure vm = new VehicleMonitoringDeliveryStructure();
+    serviceDelivery.getVehicleMonitoringDelivery().add(vm);
+
+    VehicleActivityStructure vehicleActivity = new VehicleActivityStructure();
+    vm.getVehicleActivity().add(vehicleActivity);
+
+    vehicleActivity.setRecordedAtTime(new Date(System.currentTimeMillis()));
+
+    MonitoredVehicleJourney mvj = new MonitoredVehicleJourney();
+    vehicleActivity.setMonitoredVehicleJourney(mvj);
+
+    mvj.setDelay(SiriTypeFactory.duration(minutesLate * 60 * 1000));
+
+    FramedVehicleJourneyRefStructure fvjRef = new FramedVehicleJourneyRefStructure();
+    fvjRef.setDataFrameRef(SiriTypeFactory.dataFrameRef("2011-08-23"));
+    fvjRef.setDatedVehicleJourneyRef("MyFavoriteTrip");
+    mvj.setFramedVehicleJourneyRef(fvjRef);
+
+    MonitoredCallStructure mc = new MonitoredCallStructure();
+    mc.setStopPointRef(SiriTypeFactory.stopPointRef("MyFavoriteStop"));
+    mvj.setMonitoredCall(mc);
+
+    LocationStructure location = new LocationStructure();
+    location.setLatitude(BigDecimal.valueOf(47.653738));
+    location.setLongitude(BigDecimal.valueOf(-122.307786));
+    mvj.setVehicleLocation(location);
+
+    mvj.setVehicleRef(SiriTypeFactory.vehicleRef("MyFavoriteBus"));
+    
+    return serviceDelivery;
   }
 
   private void verifyHeader(FeedMessage feed) {
