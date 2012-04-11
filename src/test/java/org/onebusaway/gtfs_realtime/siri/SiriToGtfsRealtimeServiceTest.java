@@ -223,7 +223,145 @@ public class SiriToGtfsRealtimeServiceTest {
     vehiclePositionFeed = _service.getVehiclePositions();
     verifyHeader(vehiclePositionFeed);
     assertEquals(0, vehiclePositionFeed.getEntityCount());
+  }
 
+  @Test
+  public void testIds() throws Exception {
+    _service.start();
+
+    ArgumentCaptor<Runnable> writeTaskCaptor = ArgumentCaptor.forClass(Runnable.class);
+    Mockito.verify(_executor).scheduleAtFixedRate(writeTaskCaptor.capture(),
+        Mockito.eq(0L), Mockito.anyInt(), Mockito.eq(TimeUnit.SECONDS));
+
+    ArgumentCaptor<SiriServiceDeliveryHandler> handlerCaptor = ArgumentCaptor.forClass(SiriServiceDeliveryHandler.class);
+    Mockito.verify(_client).addServiceDeliveryHandler(handlerCaptor.capture());
+
+    Runnable writeTask = writeTaskCaptor.getValue();
+    SiriServiceDeliveryHandler serviceDeliveryHandler = handlerCaptor.getValue();
+
+    /**
+     * Construct and send a low-priority vehicle activity update
+     */
+    SiriChannelInfo channelInfo = new SiriChannelInfo();
+    ServiceDelivery serviceDelivery = createVehicleActivity("TripIdA",
+        "2012-04-11", "v1", 5);
+
+    serviceDeliveryHandler.handleServiceDelivery(channelInfo, serviceDelivery);
+
+    /**
+     * Write the feed and read the results
+     */
+
+    writeTask.run();
+
+    FeedMessage tripUpdatesFeed = _service.getTripUpdates();
+    assertEquals(1, tripUpdatesFeed.getEntityCount());
+    FeedEntity tripEntity = tripUpdatesFeed.getEntity(0);
+    TripUpdate tripUpdate = tripEntity.getTripUpdate();
+    TripDescriptor trip = tripUpdate.getTrip();
+    assertEquals("TripIdA", trip.getTripId());
+    VehicleDescriptor vehicle = tripUpdate.getVehicle();
+    assertEquals("v1", vehicle.getId());
+    StopTimeUpdate stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
+    StopTimeEvent stopTimeEvent = stopTimeUpdate.getDeparture();
+    assertEquals(5 * 60, stopTimeEvent.getDelay());
+
+    /**
+     * Send a new update for same vehicle but with different trip.
+     */
+
+    serviceDelivery = createVehicleActivity("TripIdB", "2012-04-11", "v1", 4);
+    serviceDeliveryHandler.handleServiceDelivery(channelInfo, serviceDelivery);
+
+    /**
+     * Verify that the new update overwrites the old update.
+     */
+
+    writeTask.run();
+
+    tripUpdatesFeed = _service.getTripUpdates();
+    assertEquals(1, tripUpdatesFeed.getEntityCount());
+    tripEntity = tripUpdatesFeed.getEntity(0);
+    tripUpdate = tripEntity.getTripUpdate();
+    trip = tripUpdate.getTrip();
+    assertEquals("TripIdB", trip.getTripId());
+    vehicle = tripUpdate.getVehicle();
+    assertEquals("v1", vehicle.getId());
+    stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
+    stopTimeEvent = stopTimeUpdate.getDeparture();
+    assertEquals(4 * 60, stopTimeEvent.getDelay());
+
+    /**
+     * Send a new update with same trip id but no vehicle id.
+     */
+
+    serviceDelivery = createVehicleActivity("TripIdB", "2012-04-11", null, 3);
+    serviceDeliveryHandler.handleServiceDelivery(channelInfo, serviceDelivery);
+
+    /**
+     * Verify that the new update is kept separate from the existing update (no
+     * vehicle id to match it to the previous update).
+     */
+
+    writeTask.run();
+
+    tripUpdatesFeed = _service.getTripUpdates();
+    assertEquals(2, tripUpdatesFeed.getEntityCount());
+
+    tripEntity = getEntityWithId(tripUpdatesFeed, "TripIdB-2012-04-11-v1");
+    tripUpdate = tripEntity.getTripUpdate();
+    trip = tripUpdate.getTrip();
+    assertEquals("TripIdB", trip.getTripId());
+    vehicle = tripUpdate.getVehicle();
+    assertEquals("v1", vehicle.getId());
+    stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
+    stopTimeEvent = stopTimeUpdate.getDeparture();
+    assertEquals(4 * 60, stopTimeEvent.getDelay());
+
+    tripEntity = getEntityWithId(tripUpdatesFeed, "TripIdB-2012-04-11");
+    tripUpdate = tripEntity.getTripUpdate();
+    trip = tripUpdate.getTrip();
+    assertEquals("TripIdB", trip.getTripId());
+    assertFalse(tripUpdate.hasVehicle());
+    stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
+    stopTimeEvent = stopTimeUpdate.getDeparture();
+    assertEquals(3 * 60, stopTimeEvent.getDelay());
+    
+    /**
+     * Send a new update with same trip id but no vehicle id.
+     */
+
+    serviceDelivery = createVehicleActivity("TripIdB", "2012-04-11", null, 2);
+    serviceDeliveryHandler.handleServiceDelivery(channelInfo, serviceDelivery);
+
+    /**
+     * Verify that the new update is kept separate from the existing update (no
+     * vehicle id to match it to the previous update).
+     */
+
+    writeTask.run();
+
+    tripUpdatesFeed = _service.getTripUpdates();
+    assertEquals(2, tripUpdatesFeed.getEntityCount());
+
+    tripEntity = getEntityWithId(tripUpdatesFeed, "TripIdB-2012-04-11-v1");
+    tripUpdate = tripEntity.getTripUpdate();
+    trip = tripUpdate.getTrip();
+    assertEquals("TripIdB", trip.getTripId());
+    vehicle = tripUpdate.getVehicle();
+    assertEquals("v1", vehicle.getId());
+    stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
+    stopTimeEvent = stopTimeUpdate.getDeparture();
+    assertEquals(4 * 60, stopTimeEvent.getDelay());
+
+    tripEntity = getEntityWithId(tripUpdatesFeed, "TripIdB-2012-04-11");
+    tripUpdate = tripEntity.getTripUpdate();
+    trip = tripUpdate.getTrip();
+    assertEquals("TripIdB", trip.getTripId());
+    assertFalse(tripUpdate.hasVehicle());
+    stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
+    stopTimeEvent = stopTimeUpdate.getDeparture();
+    assertEquals(2 * 60, stopTimeEvent.getDelay());
   }
 
   @Test
@@ -417,8 +555,52 @@ public class SiriToGtfsRealtimeServiceTest {
     assertEquals(3 * 60, stopTimeEvent.getDelay());
   }
 
-  private ServiceDelivery createPrioritizedVehicleActivity(String priority, int minutesLate) {
-    
+  /****
+   * Private Methods
+   ****/
+
+  private ServiceDelivery createVehicleActivity(String tripId,
+      String serviceDate, String vehicleId, int minutesLate) {
+
+    ServiceDelivery serviceDelivery = new ServiceDelivery();
+
+    VehicleMonitoringDeliveryStructure vm = new VehicleMonitoringDeliveryStructure();
+    serviceDelivery.getVehicleMonitoringDelivery().add(vm);
+
+    VehicleActivityStructure vehicleActivity = new VehicleActivityStructure();
+    vm.getVehicleActivity().add(vehicleActivity);
+
+    vehicleActivity.setRecordedAtTime(new Date(System.currentTimeMillis()));
+
+    MonitoredVehicleJourney mvj = new MonitoredVehicleJourney();
+    vehicleActivity.setMonitoredVehicleJourney(mvj);
+
+    mvj.setDelay(SiriTypeFactory.duration(minutesLate * 60 * 1000));
+
+    FramedVehicleJourneyRefStructure fvjRef = new FramedVehicleJourneyRefStructure();
+    fvjRef.setDataFrameRef(SiriTypeFactory.dataFrameRef(serviceDate));
+    fvjRef.setDatedVehicleJourneyRef(tripId);
+    mvj.setFramedVehicleJourneyRef(fvjRef);
+
+    MonitoredCallStructure mc = new MonitoredCallStructure();
+    mc.setStopPointRef(SiriTypeFactory.stopPointRef("MyFavoriteStop"));
+    mvj.setMonitoredCall(mc);
+
+    LocationStructure location = new LocationStructure();
+    location.setLatitude(BigDecimal.valueOf(47.653738));
+    location.setLongitude(BigDecimal.valueOf(-122.307786));
+    mvj.setVehicleLocation(location);
+
+    if (vehicleId != null) {
+      mvj.setVehicleRef(SiriTypeFactory.vehicleRef(vehicleId));
+    }
+
+    return serviceDelivery;
+  }
+
+  private ServiceDelivery createPrioritizedVehicleActivity(String priority,
+      int minutesLate) {
+
     ServiceDelivery serviceDelivery = new ServiceDelivery();
     serviceDelivery.setProducerRef(SiriTypeFactory.particpantRef(priority));
 
@@ -450,7 +632,7 @@ public class SiriToGtfsRealtimeServiceTest {
     mvj.setVehicleLocation(location);
 
     mvj.setVehicleRef(SiriTypeFactory.vehicleRef("MyFavoriteBus"));
-    
+
     return serviceDelivery;
   }
 
@@ -460,5 +642,15 @@ public class SiriToGtfsRealtimeServiceTest {
     assertEquals(Incrementality.FULL_DATASET, header.getIncrementality());
     assertEquals((double) (System.currentTimeMillis() / 1000),
         header.getTimestamp(), 350);
+  }
+
+  private FeedEntity getEntityWithId(FeedMessage feed, String id) {
+    for (int i = 0; i < feed.getEntityCount(); ++i) {
+      FeedEntity entity = feed.getEntity(i);
+      if (entity.getId().equals(id)) {
+        return entity;
+      }
+    }
+    return null;
   }
 }

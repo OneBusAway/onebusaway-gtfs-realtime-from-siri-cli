@@ -17,26 +17,22 @@ package org.onebusaway.gtfs_realtime.siri;
 
 class TripAndVehicleKey {
 
-  /**
-   * Required
-   */
   private final String _tripId;
 
-  /**
-   * Required
-   */
   private final String _serviceDate;
 
-  /**
-   * Optional
-   */
   private final String _vehicleId;
 
-  public TripAndVehicleKey(String tripId, String serviceDate, String vehicleId) {
-    if (tripId == null)
-      throw new IllegalArgumentException("tripId is null");
-    if (serviceDate == null)
-      throw new IllegalArgumentException("serviceDate is null");
+  public static TripAndVehicleKey fromVehicleId(String vehicleId) {
+    return new TripAndVehicleKey(null, null, vehicleId);
+  }
+
+  public static TripAndVehicleKey fromTripIdAndServiceDate(String tripId,
+      String serviceDate) {
+    return new TripAndVehicleKey(tripId, serviceDate, null);
+  }
+
+  private TripAndVehicleKey(String tripId, String serviceDate, String vehicleId) {
     _tripId = tripId;
     _serviceDate = serviceDate;
     _vehicleId = vehicleId;
@@ -58,8 +54,9 @@ class TripAndVehicleKey {
   public int hashCode() {
     final int prime = 31;
     int result = 1;
-    result = prime * result + _serviceDate.hashCode();
-    result = prime * result + _tripId.hashCode();
+    result = prime * result
+        + ((_serviceDate == null) ? 0 : _serviceDate.hashCode());
+    result = prime * result + ((_tripId == null) ? 0 : _tripId.hashCode());
     result = prime * result
         + ((_vehicleId == null) ? 0 : _vehicleId.hashCode());
     return result;
@@ -74,9 +71,15 @@ class TripAndVehicleKey {
     if (getClass() != obj.getClass())
       return false;
     TripAndVehicleKey other = (TripAndVehicleKey) obj;
-    if (!_tripId.equals(other._tripId))
+    if (_serviceDate == null) {
+      if (other._serviceDate != null)
+        return false;
+    } else if (!_serviceDate.equals(other._serviceDate))
       return false;
-    if (!_serviceDate.equals(other._serviceDate))
+    if (_tripId == null) {
+      if (other._tripId != null)
+        return false;
+    } else if (!_tripId.equals(other._tripId))
       return false;
     if (_vehicleId == null) {
       if (other._vehicleId != null)
@@ -85,9 +88,11 @@ class TripAndVehicleKey {
       return false;
     return true;
   }
-  
+
   @Override
   public String toString() {
-    return "tripId=" + _tripId + " vehicleId=" + _vehicleId;
+    return "tripId=" + _tripId + " serviceDate=" + _serviceDate + " vehicleId="
+        + _vehicleId;
   }
+
 }

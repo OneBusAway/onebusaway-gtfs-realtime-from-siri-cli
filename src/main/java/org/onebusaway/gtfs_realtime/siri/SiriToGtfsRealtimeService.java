@@ -156,6 +156,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
   }
 
   public void setProducerPriorities(Map<String, Integer> producerPriorities) {
+    _log.debug("producer priorities: {}", producerPriorities);
     _producerPriorities = producerPriorities;
   }
 
@@ -243,17 +244,31 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
       VehicleActivityStructure vehicleActivity)
       throws SiriMissingArgumentException {
 
-    /**
-     * This is a required element.
-     */
+    checkVehicleActivityStructureForMissingElements(vehicleActivity);
+
+    TripAndVehicleKey key = getKeyForVehicleActivity(vehicleActivity);
+
+    String producer = null;
+    if (delivery.getProducerRef() != null)
+      producer = delivery.getProducerRef().getValue();
+
+    if (isNewDataProducerOfLowerPriorityThanExistingDataProducer(key, producer)) {
+      return;
+    }
+
+    VehicleData data = new VehicleData(key, System.currentTimeMillis(),
+        vehicleActivity, producer);
+    _dataByVehicle.put(key, data);
+  }
+
+  private void checkVehicleActivityStructureForMissingElements(
+      VehicleActivityStructure vehicleActivity) {
+
     MonitoredVehicleJourney mvj = vehicleActivity.getMonitoredVehicleJourney();
     if (mvj == null)
       throw new SiriMissingArgumentException("MonitoredVehicleJourney",
           "VehicleActivity");
 
-    /**
-     * This is a required element.
-     */
     FramedVehicleJourneyRefStructure fvjRef = mvj.getFramedVehicleJourneyRef();
     if (fvjRef == null)
       throw new SiriMissingArgumentException("FramedVehicleJourneyRef",
@@ -267,30 +282,25 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
     if (fvjRef.getDatedVehicleJourneyRef() == null)
       throw new SiriMissingArgumentException("DatedVehicleJourneyRef",
           "FramedVehicleJourneyRef");
+  }
+
+  private TripAndVehicleKey getKeyForVehicleActivity(
+      VehicleActivityStructure vehicleActivity) {
+
+    MonitoredVehicleJourney mvj = vehicleActivity.getMonitoredVehicleJourney();
 
     /**
-     * This is NOT a required element.
+     * VehicleRef is not required, but we prefer to use the vehicle id as our
+     * primary key if it is present.
      */
     VehicleRefStructure vehicleRef = mvj.getVehicleRef();
-    String vehicleId = null;
-    if (vehicleRef != null && vehicleRef.getValue() != null)
-      vehicleId = vehicleRef.getValue();
-
-    TripAndVehicleKey key = new TripAndVehicleKey(
-        fvjRef.getDatedVehicleJourneyRef(),
-        fvjRef.getDataFrameRef().getValue(), vehicleId);
-
-    String producer = null;
-    if (delivery.getProducerRef() != null)
-      producer = delivery.getProducerRef().getValue();
-
-    if (isNewDataProducerOfLowerPriorityThanExistingDataProducer(key, producer)) {
-      return;
+    if (vehicleRef != null && vehicleRef.getValue() != null) {
+      return TripAndVehicleKey.fromVehicleId(vehicleRef.getValue());
     }
 
-    VehicleData data = new VehicleData(key, System.currentTimeMillis(),
-        vehicleActivity, producer);
-    _dataByVehicle.put(key, data);
+    FramedVehicleJourneyRefStructure fvjRef = mvj.getFramedVehicleJourneyRef();
+    return TripAndVehicleKey.fromTripIdAndServiceDate(
+        fvjRef.getDatedVehicleJourneyRef(), fvjRef.getDataFrameRef().getValue());
   }
 
   private boolean isNewDataProducerOfLowerPriorityThanExistingDataProducer(
@@ -393,7 +403,6 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
         continue;
       }
 
-      TripAndVehicleKey key = data.getKey();
       VehicleActivityStructure activity = data.getVehicleActivity();
 
       MonitoredVehicleJourney mvj = activity.getMonitoredVehicleJourney();
@@ -405,11 +414,13 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
 
       TripUpdate.Builder tripUpdate = TripUpdate.newBuilder();
 
-      TripDescriptor td = getKeyAsTripDescriptor(key);
+      TripDescriptor td = getMonitoredVehicleJourneyAsTripDescriptor(mvj);
       tripUpdate.setTrip(td);
 
-      VehicleDescriptor vd = getKeyAsVehicleDescriptor(key);
-      tripUpdate.setVehicle(vd);
+      VehicleDescriptor vd = getMonitoredVehicleJourneyAsVehicleDescriptor(mvj);
+      if (vd != null) {
+        tripUpdate.setVehicle(vd);
+      }
 
       Date time = activity.getRecordedAtTime();
       if (time == null)
@@ -422,7 +433,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
       tripUpdate.setExtension(GtfsRealtimeOneBusAway.delay, delayInSeconds);
 
       FeedEntity.Builder entity = FeedEntity.newBuilder();
-      entity.setId(getTripIdForKey(key));
+      entity.setId(getTripIdForMonitoredVehicleJourney(mvj));
       if (data.getProducer() != null)
         entity.setExtension(GtfsRealtimeOneBusAway.source, data.getProducer());
 
@@ -455,14 +466,15 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
     tripUpdate.addStopTimeUpdate(stopTimeUpdate);
   }
 
-  private String getTripIdForKey(TripAndVehicleKey key) {
+  private String getTripIdForMonitoredVehicleJourney(MonitoredVehicleJourney mvj) {
     StringBuilder b = new StringBuilder();
-    b.append(_idService.id(key.getTripId()));
+    FramedVehicleJourneyRefStructure fvjRef = mvj.getFramedVehicleJourneyRef();
+    b.append(_idService.id(fvjRef.getDatedVehicleJourneyRef()));
     b.append('-');
-    b.append(_idService.id(key.getServiceDate()));
-    if (key.getVehicleId() != null) {
+    b.append(_idService.id(fvjRef.getDataFrameRef().getValue()));
+    if (mvj.getVehicleRef() != null && mvj.getVehicleRef().getValue() != null) {
       b.append('-');
-      b.append(_idService.id(key.getVehicleId()));
+      b.append(_idService.id(mvj.getVehicleRef().getValue()));
     }
     return b.toString();
   }
@@ -490,11 +502,13 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
 
         VehiclePosition.Builder vp = VehiclePosition.newBuilder();
 
-        TripDescriptor td = getKeyAsTripDescriptor(key);
+        TripDescriptor td = getMonitoredVehicleJourneyAsTripDescriptor(mvj);
         vp.setTrip(td);
 
-        VehicleDescriptor vd = getKeyAsVehicleDescriptor(key);
-        vp.setVehicle(vd);
+        VehicleDescriptor vd = getMonitoredVehicleJourneyAsVehicleDescriptor(mvj);
+        if (vd != null) {
+          vp.setVehicle(vd);
+        }
 
         Date time = activity.getRecordedAtTime();
         if (time == null)
@@ -582,21 +596,25 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
     return data.getTimestamp() + _staleDataThreshold * 1000 < currentTime;
   }
 
-  private TripDescriptor getKeyAsTripDescriptor(TripAndVehicleKey key) {
+  private TripDescriptor getMonitoredVehicleJourneyAsTripDescriptor(
+      MonitoredVehicleJourney mvj) {
 
     TripDescriptor.Builder td = TripDescriptor.newBuilder();
-    td.setTripId(_idService.id(key.getTripId()));
+    FramedVehicleJourneyRefStructure fvjRef = mvj.getFramedVehicleJourneyRef();
+    td.setTripId(_idService.id(fvjRef.getDatedVehicleJourneyRef()));
 
     return td.build();
   }
 
-  private VehicleDescriptor getKeyAsVehicleDescriptor(TripAndVehicleKey key) {
-
-    if (key.getVehicleId() == null)
+  private VehicleDescriptor getMonitoredVehicleJourneyAsVehicleDescriptor(
+      MonitoredVehicleJourney mvj) {
+    VehicleRefStructure vehicleRef = mvj.getVehicleRef();
+    if (vehicleRef == null || vehicleRef.getValue() == null) {
       return null;
+    }
 
     VehicleDescriptor.Builder vd = VehicleDescriptor.newBuilder();
-    vd.setId(_idService.id(key.getVehicleId()));
+    vd.setId(_idService.id(vehicleRef.getValue()));
     return vd.build();
   }
 
