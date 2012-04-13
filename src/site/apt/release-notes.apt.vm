@@ -2,7 +2,28 @@ Release Notes
 
 * ${currentVersion}
 
+  * Fix a number of bugs for handling multiple SIRI inputs where the same vehicle is present in more than one input.
+  
+  * Fix a bug with expiring SIRI-SX service alerts properly when using a polling request-response input.
+  
+  * Fix a bug with timestamps produced in the GTFS-realtime feed.
+  
+  * Automatically strip superfluous whitespace from SIRI-SX service alert text.
+
   * Full Documentation: {{${site_base_url}/onebusaway-gtfs-realtime-from-siri-cli/${currentVersion}/}}
+
+* 1.0.2
+
+  * Migration to GitHub
+  
+  * Add support for more stable TripUpdate and VehiclePosition ids.
+  
+  * Bug fix for improper handling of timestamps in the feed.
+  
+  * Update to latest version of a number of project dependencies, including {{{https://github.com/OneBusAway/onebusaway-siri}onebusaway-siri}}
+    and {{{https://github.com/OneBusAway/onebusaway-gtfs-realtime-exporter}onebusaway-gtfs-realtime-exporter}}.
+
+  * Full Documentation: {{${site_base_url}/onebusaway-gtfs-realtime-from-siri-cli/1.0.2/}}
   
 * 1.0.1
 
