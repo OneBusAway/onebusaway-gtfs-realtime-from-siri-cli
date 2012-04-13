@@ -2,6 +2,10 @@ Release Notes
 
 * ${currentVersion}
 
+  * Full Documentation: {{${site_base_url}/onebusaway-gtfs-realtime-from-siri-cli/${currentVersion}/}}
+  
+* 1.0.3
+
   * Fix a number of bugs for handling multiple SIRI inputs where the same vehicle is present in more than one input.
   
   * Fix a bug with expiring SIRI-SX service alerts properly when using a polling request-response input.
@@ -10,7 +14,7 @@ Release Notes
   
   * Automatically strip superfluous whitespace from SIRI-SX service alert text.
 
-  * Full Documentation: {{${site_base_url}/onebusaway-gtfs-realtime-from-siri-cli/${currentVersion}/}}
+  * Full Documentation: {{${site_base_url}/onebusaway-gtfs-realtime-from-siri-cli/1.0.3/}}
 
 * 1.0.2
 
