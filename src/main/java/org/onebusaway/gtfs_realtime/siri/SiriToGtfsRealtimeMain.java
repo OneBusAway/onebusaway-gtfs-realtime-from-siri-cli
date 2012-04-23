@@ -18,10 +18,10 @@ package org.onebusaway.gtfs_realtime.siri;
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import javax.inject.Inject;
 
@@ -36,11 +36,9 @@ import org.onebusaway.siri.core.SiriClient;
 import org.onebusaway.siri.core.SiriClientRequest;
 import org.onebusaway.siri.core.SiriClientRequestFactory;
 import org.onebusaway.siri.core.SiriCommon.ELogRawXmlType;
-import org.onebusaway.siri.core.SiriCoreModule;
 import org.onebusaway.siri.core.SiriLibrary;
 import org.onebusaway.siri.core.exceptions.SiriUnknownVersionException;
 import org.onebusaway.siri.core.versioning.ESiriVersion;
-import org.onebusaway.siri.jetty.SiriJettyModule;
 import org.onebusaway.siri.jetty.StatusServletSource;
 import org.onebusway.gtfs_realtime.exporter.AlertsFileWriter;
 import org.onebusway.gtfs_realtime.exporter.AlertsServlet;
@@ -82,6 +80,8 @@ public class SiriToGtfsRealtimeMain {
   private static final String ARG_STALE_DATA_THRESHOLD = "staleDataThreshold";
 
   private static final String ARG_PRODUCER_PRIORITIES = "producerPriorities";
+
+  private static final String ARG_REBUILD_ON_EACH_DELIVERY = "rebuildOnEachDelivery";
 
   private static final String ARG_STRIP_ID_PREFIX = "stripIdPrefix";
 
@@ -143,10 +143,8 @@ public class SiriToGtfsRealtimeMain {
 
     ensureMinimalArgs(cli);
 
-    List<Module> modules = new ArrayList<Module>();
-    modules.addAll(SiriCoreModule.getModules());
-    modules.add(new SiriJettyModule());
-    modules.add(new SiriToGtfsRealtimeModule());
+    Set<Module> modules = new HashSet<Module>();
+    SiriToGtfsRealtimeModule.addModuleAndDependencies(modules);
     Injector injector = Guice.createInjector(modules);
     injector.injectMembers(this);
 
@@ -175,6 +173,8 @@ public class SiriToGtfsRealtimeMain {
     options.addOption(ARG_LOG_RAW_XML, true, "log raw xml");
     options.addOption(ARG_FORMAT_OUTPUT_XML, false, "format output xml");
     options.addOption(ARG_PRODUCER_PRIORITIES, true, "producer priorities");
+    options.addOption(ARG_REBUILD_ON_EACH_DELIVERY, false,
+        "rebuild GTFS-realtime feed on each SIRI service delivery");
   }
 
   private void printUsage() {
@@ -267,6 +267,9 @@ public class SiriToGtfsRealtimeMain {
         producerPriorities.put(key, value);
       }
       _service.setProducerPriorities(producerPriorities);
+    }
+    if (cli.hasOption(ARG_REBUILD_ON_EACH_DELIVERY)) {
+      _service.setRebuildOnEachDelivery(true);
     }
     if (cli.hasOption(ARG_STRIP_ID_PREFIX)) {
       String stripIdPrefix = cli.getOptionValue(ARG_STRIP_ID_PREFIX);

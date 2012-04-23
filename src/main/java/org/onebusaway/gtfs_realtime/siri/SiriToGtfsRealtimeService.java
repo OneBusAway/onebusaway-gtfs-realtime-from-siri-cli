@@ -33,7 +33,6 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.xml.datatype.Duration;
 
-import org.mortbay.jetty.Server;
 import org.onebusaway.siri.core.SiriChannelInfo;
 import org.onebusaway.siri.core.SiriClient;
 import org.onebusaway.siri.core.SiriClientRequest;
@@ -41,7 +40,7 @@ import org.onebusaway.siri.core.SiriLibrary;
 import org.onebusaway.siri.core.exceptions.SiriMissingArgumentException;
 import org.onebusaway.siri.core.handlers.SiriServiceDeliveryHandler;
 import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeLibrary;
-import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeProvider;
+import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeMutableProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,7 +72,7 @@ import com.google.transit.realtime.GtfsRealtime.VehiclePosition;
 import com.google.transit.realtime.GtfsRealtimeOneBusAway;
 
 @Singleton
-public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
+public class SiriToGtfsRealtimeService {
 
   private static Logger _log = LoggerFactory.getLogger(SiriToGtfsRealtimeService.class);
 
@@ -107,17 +106,23 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
 
   private Map<String, Integer> _producerPriorities;
 
-  private Server _server;
+  /**
+   * When true, the GTFS realtime message are rebuilt on each new
+   * ServiceDelivery
+   */
+  private boolean _rebuildOnEachDelivery = false;
 
-  private volatile FeedMessage _tripUpdatesMessage = GtfsRealtimeLibrary.createFeedMessageBuilder().build();
-
-  private volatile FeedMessage _vehiclePositionsMessage = GtfsRealtimeLibrary.createFeedMessageBuilder().build();
-
-  private volatile FeedMessage _alertsMessage = GtfsRealtimeLibrary.createFeedMessageBuilder().build();
+  private GtfsRealtimeMutableProvider _gtfsRealtimeProvider;
 
   @Inject
   public void setClient(SiriClient client) {
     _client = client;
+  }
+
+  @Inject
+  public void setGtfsRealtimeProvider(
+      GtfsRealtimeMutableProvider gtfsRealtimeProvider) {
+    _gtfsRealtimeProvider = gtfsRealtimeProvider;
   }
 
   @Inject
@@ -160,11 +165,22 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
     _producerPriorities = producerPriorities;
   }
 
+  /**
+   * 
+   * @param rebuildOnEachDelivery when true, the GTFS realtime message are
+   *          rebuilt on each new ServiceDelivery
+   */
+  public void setRebuildOnEachDelivery(boolean rebuildOnEachDelivery) {
+    _rebuildOnEachDelivery = rebuildOnEachDelivery;
+  }
+
   @PostConstruct
   public void start() throws Exception {
 
-    _executor.scheduleAtFixedRate(new SiriToGtfsRealtimeQueueProcessor(), 0,
-        _updateFrequency, TimeUnit.SECONDS);
+    if (!_rebuildOnEachDelivery) {
+      _executor.scheduleAtFixedRate(new SiriToGtfsRealtimeQueueProcessor(), 0,
+          _updateFrequency, TimeUnit.SECONDS);
+    }
 
     _client.addServiceDeliveryHandler(_serviceDeliveryHandler);
 
@@ -176,38 +192,9 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
   public void stop() throws Exception {
     _client.removeServiceDeliveryHandler(_serviceDeliveryHandler);
     _executor.shutdownNow();
-    if (_server != null) {
-      _server.stop();
-    }
   }
 
-  /****
-   * {@link GtfsRealtimeProvider} Interface
-   ****/
-
-  @Override
-  public FeedMessage getTripUpdates() {
-    return _tripUpdatesMessage;
-  }
-
-  @Override
-  public FeedMessage getVehiclePositions() {
-    return _vehiclePositionsMessage;
-  }
-
-  @Override
-  public FeedMessage getAlerts() {
-    return _alertsMessage;
-  }
-
-  /****
-   * Private Methods
-   ****/
-
-  private void processQueue() throws IOException {
-
-    List<Delivery> deliveries = new ArrayList<Delivery>();
-    _deliveries.drainTo(deliveries);
+  public void processDeliveries(List<Delivery> deliveries) throws IOException {
 
     for (Delivery delivery : deliveries) {
       ServiceDelivery serviceDelivery = delivery.serviceDelivery;
@@ -238,6 +225,17 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
     }
 
     writeOutput();
+  }
+
+  /****
+   * Private Methods
+   ****/
+
+  private synchronized void processQueue() throws IOException {
+
+    List<Delivery> deliveries = new ArrayList<Delivery>();
+    _deliveries.drainTo(deliveries);
+    processDeliveries(deliveries);
   }
 
   private void processVehicleActivity(ServiceDelivery delivery,
@@ -387,6 +385,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
     writeTripUpdates();
     writeVehiclePositions();
     writeAlerts();
+    _gtfsRealtimeProvider.fireUpdate();
   }
 
   private void writeTripUpdates() throws IOException {
@@ -441,7 +440,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
       feedMessageBuilder.addEntity(entity);
     }
 
-    _tripUpdatesMessage = feedMessageBuilder.build();
+    _gtfsRealtimeProvider.setTripUpdates(feedMessageBuilder.build(), false);
   }
 
   private void applyStopSpecificDelayToTripUpdateIfApplicable(
@@ -530,7 +529,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
       }
     }
 
-    _vehiclePositionsMessage = feedMessageBuilder.build();
+    _gtfsRealtimeProvider.setVehiclePositions(feedMessageBuilder.build(), false);
   }
 
   private String getVehicleIdForKey(TripAndVehicleKey key) {
@@ -582,7 +581,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
       feedMessageBuilder.addEntity(entity);
     }
 
-    _alertsMessage = feedMessageBuilder.build();
+    _gtfsRealtimeProvider.setAlerts(feedMessageBuilder.build(), false);
   }
 
   public boolean isAlertDataExpired(AlertData data) {
@@ -630,6 +629,13 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
         ServiceDelivery serviceDelivery) {
       _log.debug("delivery: channel={}", channelInfo.getContext());
       _deliveries.add(new Delivery(channelInfo, serviceDelivery));
+      if (_rebuildOnEachDelivery) {
+        try {
+          processQueue();
+        } catch (IOException ex) {
+          _log.error("error processing incoming SIRI data", ex);
+        }
+      }
     }
   }
 
@@ -645,7 +651,7 @@ public class SiriToGtfsRealtimeService implements GtfsRealtimeProvider {
     }
   }
 
-  private static final class Delivery {
+  public static final class Delivery {
     public final SiriChannelInfo channelInfo;
     public final ServiceDelivery serviceDelivery;
 

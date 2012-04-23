@@ -36,6 +36,7 @@ import org.onebusaway.siri.core.SiriClient;
 import org.onebusaway.siri.core.SiriClientRequest;
 import org.onebusaway.siri.core.SiriTypeFactory;
 import org.onebusaway.siri.core.handlers.SiriServiceDeliveryHandler;
+import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeProviderImpl;
 
 import uk.org.siri.siri.FramedVehicleJourneyRefStructure;
 import uk.org.siri.siri.LocationStructure;
@@ -69,6 +70,7 @@ public class SiriToGtfsRealtimeServiceTest {
   private ScheduledExecutorService _executor;
   private SiriClient _client;
   private AlertFactory _alertFactory;
+  private GtfsRealtimeProviderImpl _provider;
 
   @Before
   public void setup() throws IOException {
@@ -84,6 +86,9 @@ public class SiriToGtfsRealtimeServiceTest {
     _service.setAlertFactory(_alertFactory);
 
     _service.setIdService(new IdService());
+
+    _provider = new GtfsRealtimeProviderImpl();
+    _service.setGtfsRealtimeProvider(_provider);
   }
 
   @Test
@@ -109,11 +114,11 @@ public class SiriToGtfsRealtimeServiceTest {
      */
     writeTask.run();
 
-    FeedMessage tripUpdatesFeed = _service.getTripUpdates();
+    FeedMessage tripUpdatesFeed = _provider.getTripUpdates();
     verifyHeader(tripUpdatesFeed);
     assertEquals(0, tripUpdatesFeed.getEntityCount());
 
-    FeedMessage vehiclePositionFeed = _service.getVehiclePositions();
+    FeedMessage vehiclePositionFeed = _provider.getVehiclePositions();
     verifyHeader(vehiclePositionFeed);
     assertEquals(0, vehiclePositionFeed.getEntityCount());
 
@@ -160,7 +165,7 @@ public class SiriToGtfsRealtimeServiceTest {
      */
     writeTask.run();
 
-    tripUpdatesFeed = _service.getTripUpdates();
+    tripUpdatesFeed = _provider.getTripUpdates();
     verifyHeader(tripUpdatesFeed);
     assertEquals(1, tripUpdatesFeed.getEntityCount());
 
@@ -187,7 +192,7 @@ public class SiriToGtfsRealtimeServiceTest {
     assertEquals(0, stopTimeEvent.getTime());
     assertEquals(0, stopTimeEvent.getUncertainty());
 
-    vehiclePositionFeed = _service.getVehiclePositions();
+    vehiclePositionFeed = _provider.getVehiclePositions();
     verifyHeader(vehiclePositionFeed);
     assertEquals(1, vehiclePositionFeed.getEntityCount());
 
@@ -216,11 +221,11 @@ public class SiriToGtfsRealtimeServiceTest {
      */
     writeTask.run();
 
-    tripUpdatesFeed = _service.getTripUpdates();
+    tripUpdatesFeed = _provider.getTripUpdates();
     verifyHeader(tripUpdatesFeed);
     assertEquals(0, tripUpdatesFeed.getEntityCount());
 
-    vehiclePositionFeed = _service.getVehiclePositions();
+    vehiclePositionFeed = _provider.getVehiclePositions();
     verifyHeader(vehiclePositionFeed);
     assertEquals(0, vehiclePositionFeed.getEntityCount());
   }
@@ -254,7 +259,7 @@ public class SiriToGtfsRealtimeServiceTest {
 
     writeTask.run();
 
-    FeedMessage tripUpdatesFeed = _service.getTripUpdates();
+    FeedMessage tripUpdatesFeed = _provider.getTripUpdates();
     assertEquals(1, tripUpdatesFeed.getEntityCount());
     FeedEntity tripEntity = tripUpdatesFeed.getEntity(0);
     TripUpdate tripUpdate = tripEntity.getTripUpdate();
@@ -279,7 +284,7 @@ public class SiriToGtfsRealtimeServiceTest {
 
     writeTask.run();
 
-    tripUpdatesFeed = _service.getTripUpdates();
+    tripUpdatesFeed = _provider.getTripUpdates();
     assertEquals(1, tripUpdatesFeed.getEntityCount());
     tripEntity = tripUpdatesFeed.getEntity(0);
     tripUpdate = tripEntity.getTripUpdate();
@@ -305,7 +310,7 @@ public class SiriToGtfsRealtimeServiceTest {
 
     writeTask.run();
 
-    tripUpdatesFeed = _service.getTripUpdates();
+    tripUpdatesFeed = _provider.getTripUpdates();
     assertEquals(2, tripUpdatesFeed.getEntityCount());
 
     tripEntity = getEntityWithId(tripUpdatesFeed, "TripIdB-2012-04-11-v1");
@@ -326,7 +331,7 @@ public class SiriToGtfsRealtimeServiceTest {
     stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
     stopTimeEvent = stopTimeUpdate.getDeparture();
     assertEquals(3 * 60, stopTimeEvent.getDelay());
-    
+
     /**
      * Send a new update with same trip id but no vehicle id.
      */
@@ -341,7 +346,7 @@ public class SiriToGtfsRealtimeServiceTest {
 
     writeTask.run();
 
-    tripUpdatesFeed = _service.getTripUpdates();
+    tripUpdatesFeed = _provider.getTripUpdates();
     assertEquals(2, tripUpdatesFeed.getEntityCount());
 
     tripEntity = getEntityWithId(tripUpdatesFeed, "TripIdB-2012-04-11-v1");
@@ -419,7 +424,7 @@ public class SiriToGtfsRealtimeServiceTest {
     /**
      * Read and verify the alert
      */
-    FeedMessage alerts = _service.getAlerts();
+    FeedMessage alerts = _provider.getAlerts();
     verifyHeader(alerts);
     assertEquals(1, alerts.getEntityCount());
 
@@ -446,7 +451,7 @@ public class SiriToGtfsRealtimeServiceTest {
     /**
      * Verify that the polled alert has properly expired.
      */
-    alerts = _service.getAlerts();
+    alerts = _provider.getAlerts();
     assertEquals(0, alerts.getEntityCount());
   }
 
@@ -484,7 +489,7 @@ public class SiriToGtfsRealtimeServiceTest {
 
     writeTask.run();
 
-    FeedMessage tripUpdatesFeed = _service.getTripUpdates();
+    FeedMessage tripUpdatesFeed = _provider.getTripUpdates();
     FeedEntity tripEntity = tripUpdatesFeed.getEntity(0);
     TripUpdate tripUpdate = tripEntity.getTripUpdate();
     StopTimeUpdate stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
@@ -505,7 +510,7 @@ public class SiriToGtfsRealtimeServiceTest {
 
     writeTask.run();
 
-    tripUpdatesFeed = _service.getTripUpdates();
+    tripUpdatesFeed = _provider.getTripUpdates();
     tripEntity = tripUpdatesFeed.getEntity(0);
     tripUpdate = tripEntity.getTripUpdate();
     stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
@@ -526,7 +531,7 @@ public class SiriToGtfsRealtimeServiceTest {
 
     writeTask.run();
 
-    tripUpdatesFeed = _service.getTripUpdates();
+    tripUpdatesFeed = _provider.getTripUpdates();
     tripEntity = tripUpdatesFeed.getEntity(0);
     tripUpdate = tripEntity.getTripUpdate();
     stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
@@ -547,7 +552,7 @@ public class SiriToGtfsRealtimeServiceTest {
 
     writeTask.run();
 
-    tripUpdatesFeed = _service.getTripUpdates();
+    tripUpdatesFeed = _provider.getTripUpdates();
     tripEntity = tripUpdatesFeed.getEntity(0);
     tripUpdate = tripEntity.getTripUpdate();
     stopTimeUpdate = tripUpdate.getStopTimeUpdate(0);
