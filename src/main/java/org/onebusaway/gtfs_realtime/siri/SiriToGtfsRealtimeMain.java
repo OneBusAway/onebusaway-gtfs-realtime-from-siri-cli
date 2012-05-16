@@ -18,6 +18,7 @@ package org.onebusaway.gtfs_realtime.siri;
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -84,6 +85,10 @@ public class SiriToGtfsRealtimeMain {
   private static final String ARG_REBUILD_ON_EACH_DELIVERY = "rebuildOnEachDelivery";
 
   private static final String ARG_STRIP_ID_PREFIX = "stripIdPrefix";
+
+  private static final String ARG_TRIP_UPDATE_MONITORING_ERRORS = "tripUpdateMonitoringErrors";
+
+  private static final String ARG_VEHICLE_POSITION_MONITORING_ERRORS = "vehiclePositionMonitoringErrors";
 
   private static final String ARG_LOG_RAW_XML = "logRawXml";
 
@@ -170,6 +175,10 @@ public class SiriToGtfsRealtimeMain {
     options.addOption(ARG_UPDATE_FREQUENCY, true, "update frequency");
     options.addOption(ARG_STALE_DATA_THRESHOLD, true, "stale data threshold");
     options.addOption(ARG_STRIP_ID_PREFIX, true, "strip id prefix");
+    options.addOption(ARG_TRIP_UPDATE_MONITORING_ERRORS, true,
+        "trip update monitoring errors");
+    options.addOption(ARG_VEHICLE_POSITION_MONITORING_ERRORS, true,
+        "vehicle position monitoring errors");
     options.addOption(ARG_LOG_RAW_XML, true, "log raw xml");
     options.addOption(ARG_FORMAT_OUTPUT_XML, false, "format output xml");
     options.addOption(ARG_PRODUCER_PRIORITIES, true, "producer priorities");
@@ -275,7 +284,18 @@ public class SiriToGtfsRealtimeMain {
       String stripIdPrefix = cli.getOptionValue(ARG_STRIP_ID_PREFIX);
       _idService.setStripIdPrefix(stripIdPrefix);
     }
-
+    if (cli.hasOption(ARG_TRIP_UPDATE_MONITORING_ERRORS)) {
+      String values = cli.getOptionValue(ARG_TRIP_UPDATE_MONITORING_ERRORS);
+      Set<String> monitoringErrors = new HashSet<String>(
+          Arrays.asList(values.split(",")));
+      _service.setMonitoringErrorsForTripUpdates(monitoringErrors);
+    }
+    if (cli.hasOption(ARG_VEHICLE_POSITION_MONITORING_ERRORS)) {
+      String values = cli.getOptionValue(ARG_VEHICLE_POSITION_MONITORING_ERRORS);
+      Set<String> monitoringErrors = new HashSet<String>(
+          Arrays.asList(values.split(",")));
+      _service.setMonitoringErrorsForVehiclePositions(monitoringErrors);
+    }
     if (cli.hasOption(ARG_LOG_RAW_XML)) {
       String value = cli.getOptionValue(ARG_LOG_RAW_XML);
       ELogRawXmlType type = ELogRawXmlType.valueOf(value.toUpperCase());

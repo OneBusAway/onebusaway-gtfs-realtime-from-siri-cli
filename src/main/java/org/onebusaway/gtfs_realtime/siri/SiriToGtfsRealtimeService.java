@@ -19,9 +19,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -39,6 +41,7 @@ import org.onebusaway.siri.core.SiriClientRequest;
 import org.onebusaway.siri.core.SiriLibrary;
 import org.onebusaway.siri.core.exceptions.SiriMissingArgumentException;
 import org.onebusaway.siri.core.handlers.SiriServiceDeliveryHandler;
+import org.onebusaway.siri.core.services.StatusProviderService;
 import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeLibrary;
 import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeMutableProvider;
 import org.slf4j.Logger;
@@ -72,7 +75,11 @@ import com.google.transit.realtime.GtfsRealtime.VehiclePosition;
 import com.google.transit.realtime.GtfsRealtimeOneBusAway;
 
 @Singleton
-public class SiriToGtfsRealtimeService {
+public class SiriToGtfsRealtimeService implements StatusProviderService {
+
+  public static final String MONITORING_ERROR_OFF_ROUTE = "OFF_ROUTE";
+
+  public static final String MONITORING_ERROR_NO_CURRENT_INFORMATION = "NO_CURRENT_INFORMATION";
 
   private static Logger _log = LoggerFactory.getLogger(SiriToGtfsRealtimeService.class);
 
@@ -111,6 +118,37 @@ public class SiriToGtfsRealtimeService {
    * ServiceDelivery
    */
   private boolean _rebuildOnEachDelivery = false;
+
+  private Set<String> _monitoringErrorsForTripUpdates = new HashSet<String>() {
+    private static final long serialVersionUID = 1L;
+    {
+      add(MONITORING_ERROR_OFF_ROUTE);
+      add(MONITORING_ERROR_NO_CURRENT_INFORMATION);
+    }
+  };
+
+  private Set<String> _monitoringErrorsForVehiclePositions = new HashSet<String>() {
+    private static final long serialVersionUID = 1L;
+    {
+      add(MONITORING_ERROR_NO_CURRENT_INFORMATION);
+    }
+  };
+
+  /**
+   * The count of how many trip updates have been excluded due to monitoring
+   * errors.
+   */
+  private volatile int _tripUpdateMonitoringErrorCount = 0;
+
+  /**
+   * The count of how many vehicle positions have been excluded due to
+   * monitoring errors.
+   */
+  private volatile int _vehiclePositionMonitoringErrorCount = 0;
+
+  private volatile int _tripUpdateCount = 0;
+
+  private volatile int _vehiclePositionCount = 0;
 
   private GtfsRealtimeMutableProvider _gtfsRealtimeProvider;
 
@@ -174,6 +212,33 @@ public class SiriToGtfsRealtimeService {
     _rebuildOnEachDelivery = rebuildOnEachDelivery;
   }
 
+  /**
+   * If a {@link MonitoredVehicleJourney} is not monitored, as determined by
+   * {@link MonitoredVehicleJourney#isMonitored()}, and has a
+   * {@link MonitoredVehicleJourney#getMonitoringError()} value that is included
+   * in the specified monitoring error set, then a {@link TripUpdate} will not
+   * be included for the monitored vehicle.
+   * 
+   * @param monitoringErrors
+   */
+  public void setMonitoringErrorsForTripUpdates(Set<String> monitoringErrors) {
+    _monitoringErrorsForTripUpdates = monitoringErrors;
+  }
+
+  /**
+   * If a {@link MonitoredVehicleJourney} is not monitored, as determined by
+   * {@link MonitoredVehicleJourney#isMonitored()}, and has a
+   * {@link MonitoredVehicleJourney#getMonitoringError()} value that is included
+   * in the specified monitoring error set, then a {@link VehiclePosition} will
+   * not be included for the monitored vehicle.
+   * 
+   * @param monitoringErrors
+   */
+  public void setMonitoringErrorsForVehiclePositions(
+      Set<String> monitoringErrors) {
+    _monitoringErrorsForVehiclePositions = monitoringErrors;
+  }
+
   @PostConstruct
   public void start() throws Exception {
 
@@ -192,6 +257,22 @@ public class SiriToGtfsRealtimeService {
   public void stop() throws Exception {
     _client.removeServiceDeliveryHandler(_serviceDeliveryHandler);
     _executor.shutdownNow();
+  }
+
+  /***
+   * {@link StatusProviderService} Interface
+   ****/
+
+  @Override
+  public void getStatus(Map<String, String> status) {
+    String prefix = "siriToGtfsRealtime.";
+    status.put(prefix + "tripUpdateMonitoringErrorCount",
+        Integer.toString(_tripUpdateMonitoringErrorCount));
+    status.put(prefix + "vehiclePositionMonitoringErrorCount",
+        Integer.toString(_vehiclePositionMonitoringErrorCount));
+    status.put(prefix + "tripUpdateCount", Integer.toString(_tripUpdateCount));
+    status.put(prefix + "vehiclePositionCount",
+        Integer.toString(_vehiclePositionCount));
   }
 
   public void processDeliveries(List<Delivery> deliveries) throws IOException {
@@ -406,6 +487,10 @@ public class SiriToGtfsRealtimeService {
 
       MonitoredVehicleJourney mvj = activity.getMonitoredVehicleJourney();
 
+      if (hasTripUpdateMonitoringError(mvj)) {
+        continue;
+      }
+
       Duration delayDuration = mvj.getDelay();
       if (delayDuration == null)
         continue;
@@ -495,6 +580,10 @@ public class SiriToGtfsRealtimeService {
 
       MonitoredVehicleJourney mvj = activity.getMonitoredVehicleJourney();
       LocationStructure location = mvj.getVehicleLocation();
+
+      if (hasVehiclePositionMonitoringError(mvj)) {
+        continue;
+      }
 
       if (location != null && location.getLatitude() != null
           && location.getLongitude() != null) {
@@ -595,6 +684,52 @@ public class SiriToGtfsRealtimeService {
     return data.getTimestamp() + _staleDataThreshold * 1000 < currentTime;
   }
 
+  /**
+   * 
+   * @param mvj
+   * @return true if MonitoredVehicleJourney.Monitored is false and
+   *         MonitoredVehicleJourney.MonitoringError contains a string matching
+   *         a value in {@link #_monitoringErrorsForTripUpdates}.
+   */
+  private boolean hasTripUpdateMonitoringError(MonitoredVehicleJourney mvj) {
+    if (mvj.isMonitored() != null && mvj.isMonitored()) {
+      return false;
+    }
+    List<String> errors = mvj.getMonitoringError();
+    if (errors == null) {
+      return false;
+    }
+    for (String error : errors) {
+      if (_monitoringErrorsForTripUpdates.contains(error)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 
+   * @param mvj
+   * @return true if MonitoredVehicleJourney.Monitored is false and
+   *         MonitoredVehicleJourney.MonitoringError contains a string matching
+   *         a value in {@link #_monitoringErrorsForTripUpdates}.
+   */
+  private boolean hasVehiclePositionMonitoringError(MonitoredVehicleJourney mvj) {
+    if (mvj.isMonitored() != null && mvj.isMonitored()) {
+      return false;
+    }
+    List<String> errors = mvj.getMonitoringError();
+    if (errors == null) {
+      return false;
+    }
+    for (String error : errors) {
+      if (_monitoringErrorsForVehiclePositions.contains(error)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private TripDescriptor getMonitoredVehicleJourneyAsTripDescriptor(
       MonitoredVehicleJourney mvj) {
 
@@ -660,4 +795,5 @@ public class SiriToGtfsRealtimeService {
       this.serviceDelivery = serviceDelivery;
     }
   }
+
 }

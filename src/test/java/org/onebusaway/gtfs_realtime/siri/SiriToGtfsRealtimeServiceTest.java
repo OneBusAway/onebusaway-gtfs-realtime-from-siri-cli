@@ -560,6 +560,95 @@ public class SiriToGtfsRealtimeServiceTest {
     assertEquals(3 * 60, stopTimeEvent.getDelay());
   }
 
+  @Test
+  public void testMonitoringErrors() throws Exception {
+
+    _service.start();
+
+    ArgumentCaptor<Runnable> writeTaskCaptor = ArgumentCaptor.forClass(Runnable.class);
+    Mockito.verify(_executor).scheduleAtFixedRate(writeTaskCaptor.capture(),
+        Mockito.eq(0L), Mockito.anyInt(), Mockito.eq(TimeUnit.SECONDS));
+
+    ArgumentCaptor<SiriServiceDeliveryHandler> handlerCaptor = ArgumentCaptor.forClass(SiriServiceDeliveryHandler.class);
+    Mockito.verify(_client).addServiceDeliveryHandler(handlerCaptor.capture());
+
+    Runnable writeTask = writeTaskCaptor.getValue();
+    SiriServiceDeliveryHandler serviceDeliveryHandler = handlerCaptor.getValue();
+
+    /**
+     * Construct and send a vehicle activity update
+     */
+    SiriChannelInfo channelInfo = new SiriChannelInfo();
+    ServiceDelivery serviceDelivery = createVehicleActivity("trip-1",
+        "2012-05-15", "123", 5);
+
+    serviceDeliveryHandler.handleServiceDelivery(channelInfo, serviceDelivery);
+
+    /**
+     * Write the feed and read the results
+     */
+
+    writeTask.run();
+
+    FeedMessage tripUpdatesFeed = _provider.getTripUpdates();
+    assertEquals(1, tripUpdatesFeed.getEntityCount());
+
+    FeedMessage vehiclePositionsFeed = _provider.getVehiclePositions();
+    assertEquals(1, vehiclePositionsFeed.getEntityCount());
+
+    /**
+     * Send a new update with a monitoring error that should only affect the
+     * trip update output
+     */
+
+    serviceDelivery = createVehicleActivity("trip-1", "2012-05-15", "123", 0);
+    MonitoredVehicleJourney mvj = serviceDelivery.getVehicleMonitoringDelivery().get(
+        0).getVehicleActivity().get(0).getMonitoredVehicleJourney();
+    mvj.setMonitored(false);
+    mvj.getMonitoringError().add(
+        SiriToGtfsRealtimeService.MONITORING_ERROR_OFF_ROUTE);
+    serviceDeliveryHandler.handleServiceDelivery(channelInfo, serviceDelivery);
+
+    /**
+     * Verify that the trip update with a monitoring error is now excluded but
+     * the vehicle position is still included.
+     */
+
+    writeTask.run();
+
+    tripUpdatesFeed = _provider.getTripUpdates();
+    assertEquals(0, tripUpdatesFeed.getEntityCount());
+
+    vehiclePositionsFeed = _provider.getVehiclePositions();
+    assertEquals(1, vehiclePositionsFeed.getEntityCount());
+
+    /**
+     * Send a new update with a monitoring error that should only affect both
+     * the trip update and vehicle position output
+     */
+
+    serviceDelivery = createVehicleActivity("trip-1", "2012-05-15", "123", 0);
+    mvj = serviceDelivery.getVehicleMonitoringDelivery().get(0).getVehicleActivity().get(
+        0).getMonitoredVehicleJourney();
+    mvj.setMonitored(false);
+    mvj.getMonitoringError().add(
+        SiriToGtfsRealtimeService.MONITORING_ERROR_NO_CURRENT_INFORMATION);
+    serviceDeliveryHandler.handleServiceDelivery(channelInfo, serviceDelivery);
+
+    /**
+     * Verify that the trip update with a monitoring error is now excluded but
+     * the vehicle position is still included.
+     */
+
+    writeTask.run();
+
+    tripUpdatesFeed = _provider.getTripUpdates();
+    assertEquals(0, tripUpdatesFeed.getEntityCount());
+
+    vehiclePositionsFeed = _provider.getVehiclePositions();
+    assertEquals(0, vehiclePositionsFeed.getEntityCount());
+  }
+
   /****
    * Private Methods
    ****/

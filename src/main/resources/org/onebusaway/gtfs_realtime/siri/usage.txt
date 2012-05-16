@@ -4,22 +4,28 @@ Description:
 Usage:
   [-args] request [request ...]
 
-Args:
-  --id=value                       the client's SIRI participant id
-  --clientUrl=url                  the url your SIRI client publishes to a server in publish/subscribe
-  --privateClientUrl=url           the internal url your SIRI client will actually bind to, if specified (default=clientUrl)
+Basic Args:
   --tripUpdatesPath=path           write GTFS-realtime TripUpdates to the specified path
   --tripUpdatesUrl=url             share GTFS-realtime TripUpdates at the specified URL
   --vehiclePositionsPath=path      write GTFS-realtime VehiclePositions to the specified path
   --vehiclePositionsUrl=url        share GTFS-realtime VehiclePositions at the specified URL
   --updateFrequency=time           how often to update the GTFS-realtime output files, in seconds
+
+Advanced Args:
+  --id=value                       the client's SIRI participant id
+  --clientUrl=url                  the url your SIRI client publishes to a server in publish/subscribe
+  --privateClientUrl=url           the internal url your SIRI client will actually bind to, if specified (default=clientUrl)
+    
   --staleDataThreshold=time        how long before a SIRI vehicle update is considered stale, in seconds
   --producerPriorities=            priorities when merging data for same vehicle from multiple siri endpoints (pA=1,pB=2,...)
   --stripIdPrefix=prefix           strip the specified prefix from GTFS ids in the GTFS-realtime output
   --logRawXml=...                  If specified, indicates how raw SIRI XML should be logged to the console.
                                    Valid values are "NONE" (the default), "DATA", "CONTROL", and "ALL".
-  
-  
+  --tripUpdateMonitoringErrors=... 
+  --vehiclePositionMonitoringErrors=...
+                                   A comma-separated list of values (eg "OFF_ROUTE,NO_CURRENT_INFORMATION") indicating
+                                   SIRI MonitoredVehicleJourney.MonitoringError codes that should cause a vehicle
+                                   to be excluded from the trip updates or vehicle positions output feed.
 Request Examples:
 
   Requests control the connections that are made to remote SIRI data sources.
