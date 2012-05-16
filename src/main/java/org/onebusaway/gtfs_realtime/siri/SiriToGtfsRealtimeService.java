@@ -488,6 +488,7 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
       MonitoredVehicleJourney mvj = activity.getMonitoredVehicleJourney();
 
       if (hasTripUpdateMonitoringError(mvj)) {
+        _tripUpdateMonitoringErrorCount++;
         continue;
       }
 
@@ -523,6 +524,7 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
 
       entity.setTripUpdate(tripUpdate);
       feedMessageBuilder.addEntity(entity);
+      _tripUpdateCount++;
     }
 
     _gtfsRealtimeProvider.setTripUpdates(feedMessageBuilder.build(), false);
@@ -582,6 +584,7 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
       LocationStructure location = mvj.getVehicleLocation();
 
       if (hasVehiclePositionMonitoringError(mvj)) {
+        _vehiclePositionMonitoringErrorCount++;
         continue;
       }
 
@@ -615,6 +618,7 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
 
         entity.setVehicle(vp);
         feedMessageBuilder.addEntity(entity);
+        _vehiclePositionCount++;
       }
     }
 
