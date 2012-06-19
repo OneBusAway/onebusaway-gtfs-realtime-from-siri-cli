@@ -12,8 +12,8 @@
   <url>https://github.com/OneBusAway/onebusaway-gtfs-realtime-from-siri-cli/wiki/</url>
   
   <properties>
-    <onebusaway_siri_version>1.0.6-SNAPSHOT</onebusaway_siri_version>
-    <gtfs_realtime_api_version>1.0.3</gtfs_realtime_api_version>
+    <onebusaway_siri_version>1.0.7-SNAPSHOT</onebusaway_siri_version>
+    <gtfs_realtime_api_version>1.1.0-SNAPSHOT</gtfs_realtime_api_version>
   </properties>
 
   <repositories>
