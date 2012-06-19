@@ -13,7 +13,7 @@
   
   <properties>
     <onebusaway_siri_version>1.0.7-SNAPSHOT</onebusaway_siri_version>
-    <gtfs_realtime_api_version>1.1.0-SNAPSHOT</gtfs_realtime_api_version>
+    <gtfs_realtime_api_version>1.1.0</gtfs_realtime_api_version>
   </properties>
 
   <repositories>

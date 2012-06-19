@@ -73,6 +73,8 @@ import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
 import com.google.transit.realtime.GtfsRealtime.VehicleDescriptor;
 import com.google.transit.realtime.GtfsRealtime.VehiclePosition;
 import com.google.transit.realtime.GtfsRealtimeOneBusAway;
+import com.google.transit.realtime.GtfsRealtimeOneBusAway.OneBusAwayFeedEntity;
+import com.google.transit.realtime.GtfsRealtimeOneBusAway.OneBusAwayTripUpdate;
 
 @Singleton
 public class SiriToGtfsRealtimeService implements StatusProviderService {
@@ -507,20 +509,25 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
         tripUpdate.setVehicle(vd);
       }
 
+      OneBusAwayTripUpdate.Builder obaTripUpdate = OneBusAwayTripUpdate.newBuilder();
       Date time = activity.getRecordedAtTime();
       if (time == null)
         time = new Date(feedTimestamp);
-      tripUpdate.setExtension(GtfsRealtimeOneBusAway.timestamp,
-          time.getTime() / 1000);
+      obaTripUpdate.setTimestamp(time.getTime() / 1000);
 
       applyStopSpecificDelayToTripUpdateIfApplicable(mvj, delayInSeconds,
           tripUpdate);
-      tripUpdate.setExtension(GtfsRealtimeOneBusAway.delay, delayInSeconds);
+      obaTripUpdate.setDelay(delayInSeconds);
+      
+      tripUpdate.setExtension(GtfsRealtimeOneBusAway.obaTripUpdate, obaTripUpdate.build());
 
       FeedEntity.Builder entity = FeedEntity.newBuilder();
       entity.setId(getTripIdForMonitoredVehicleJourney(mvj));
-      if (data.getProducer() != null)
-        entity.setExtension(GtfsRealtimeOneBusAway.source, data.getProducer());
+      if (data.getProducer() != null) {
+        OneBusAwayFeedEntity.Builder obaFeedEntity = OneBusAwayFeedEntity.newBuilder();
+        obaFeedEntity.setSource(data.getProducer());        
+        entity.setExtension(GtfsRealtimeOneBusAway.obaFeedEntity, obaFeedEntity.build());
+      }
 
       entity.setTripUpdate(tripUpdate);
       feedMessageBuilder.addEntity(entity);
@@ -613,8 +620,11 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
 
         FeedEntity.Builder entity = FeedEntity.newBuilder();
         entity.setId(getVehicleIdForKey(key));
-        if (data.getProducer() != null)
-          entity.setExtension(GtfsRealtimeOneBusAway.source, data.getProducer());
+        if (data.getProducer() != null) {
+          OneBusAwayFeedEntity.Builder obaFeedEntity = OneBusAwayFeedEntity.newBuilder();
+          obaFeedEntity.setSource(data.getProducer());        
+          entity.setExtension(GtfsRealtimeOneBusAway.obaFeedEntity, obaFeedEntity.build());
+        }
 
         entity.setVehicle(vp);
         feedMessageBuilder.addEntity(entity);
@@ -667,8 +677,11 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
       FeedEntity.Builder entity = FeedEntity.newBuilder();
       entity.setId(situation.getSituationNumber().getValue());
 
-      if (data.getProducer() != null)
-        entity.setExtension(GtfsRealtimeOneBusAway.source, data.getProducer());
+      if (data.getProducer() != null) {
+        OneBusAwayFeedEntity.Builder obaFeedEntity = OneBusAwayFeedEntity.newBuilder();
+        obaFeedEntity.setSource(data.getProducer());        
+        entity.setExtension(GtfsRealtimeOneBusAway.obaFeedEntity, obaFeedEntity.build());
+      }
 
       entity.setAlert(alert);
       feedMessageBuilder.addEntity(entity);
