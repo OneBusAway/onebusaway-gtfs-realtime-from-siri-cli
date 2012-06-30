@@ -40,7 +40,7 @@ import org.onebusaway.siri.core.SiriCommon.ELogRawXmlType;
 import org.onebusaway.siri.core.SiriLibrary;
 import org.onebusaway.siri.core.exceptions.SiriUnknownVersionException;
 import org.onebusaway.siri.core.versioning.ESiriVersion;
-import org.onebusaway.siri.jetty.StatusServletSource;
+import org.onebusaway.status_exporter.StatusServletSource;
 import org.onebusway.gtfs_realtime.exporter.AlertsFileWriter;
 import org.onebusway.gtfs_realtime.exporter.AlertsServlet;
 import org.onebusway.gtfs_realtime.exporter.TripUpdatesFileWriter;

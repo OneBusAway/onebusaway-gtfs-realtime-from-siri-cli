@@ -41,7 +41,7 @@ import org.onebusaway.siri.core.SiriClientRequest;
 import org.onebusaway.siri.core.SiriLibrary;
 import org.onebusaway.siri.core.exceptions.SiriMissingArgumentException;
 import org.onebusaway.siri.core.handlers.SiriServiceDeliveryHandler;
-import org.onebusaway.siri.core.services.StatusProviderService;
+import org.onebusaway.status_exporter.StatusProviderService;
 import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeLibrary;
 import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeMutableProvider;
 import org.slf4j.Logger;
