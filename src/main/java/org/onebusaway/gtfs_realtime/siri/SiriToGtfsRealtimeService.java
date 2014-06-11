@@ -82,6 +82,8 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
   public static final String MONITORING_ERROR_OFF_ROUTE = "OFF_ROUTE";
 
   public static final String MONITORING_ERROR_NO_CURRENT_INFORMATION = "NO_CURRENT_INFORMATION";
+  
+  public static final String MONITORING_ERROR_NOMINALLY_LOCATED = "NOMINALLY_LOCATED";
 
   private static Logger _log = LoggerFactory.getLogger(SiriToGtfsRealtimeService.class);
 
@@ -126,6 +128,7 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
     {
       add(MONITORING_ERROR_OFF_ROUTE);
       add(MONITORING_ERROR_NO_CURRENT_INFORMATION);
+      add(MONITORING_ERROR_NOMINALLY_LOCATED);
     }
   };
 
@@ -133,6 +136,7 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
     private static final long serialVersionUID = 1L;
     {
       add(MONITORING_ERROR_NO_CURRENT_INFORMATION);
+      add(MONITORING_ERROR_NOMINALLY_LOCATED);
     }
   };
 
