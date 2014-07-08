@@ -48,6 +48,11 @@
       <artifactId>onebusaway-siri-jetty</artifactId>
       <version>${onebusaway_siri_version}</version>
     </dependency>
+        <dependency>
+      <groupId>org.onebusaway</groupId>
+      <artifactId>onebusaway-siri-api-v13</artifactId>
+      <version>1.0.2-SNAPSHOT</version>
+    </dependency>
     <dependency>
       <groupId>org.onebusaway</groupId>
       <artifactId>onebusaway-gtfs-realtime-exporter</artifactId>

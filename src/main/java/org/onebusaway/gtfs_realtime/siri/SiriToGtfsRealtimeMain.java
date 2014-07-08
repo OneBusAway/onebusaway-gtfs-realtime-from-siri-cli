@@ -89,6 +89,8 @@ public class SiriToGtfsRealtimeMain {
   private static final String ARG_TRIP_UPDATE_MONITORING_ERRORS = "tripUpdateMonitoringErrors";
 
   private static final String ARG_VEHICLE_POSITION_MONITORING_ERRORS = "vehiclePositionMonitoringErrors";
+  
+  private static final String ARG_LAYOVER_STRATEGY = "layoverStrategy";
 
   private static final String ARG_LOG_RAW_XML = "logRawXml";
 
@@ -179,6 +181,7 @@ public class SiriToGtfsRealtimeMain {
         "trip update monitoring errors");
     options.addOption(ARG_VEHICLE_POSITION_MONITORING_ERRORS, true,
         "vehicle position monitoring errors");
+    options.addOption(ARG_LAYOVER_STRATEGY, true, "layover strategy");
     options.addOption(ARG_LOG_RAW_XML, true, "log raw xml");
     options.addOption(ARG_FORMAT_OUTPUT_XML, false, "format output xml");
     options.addOption(ARG_PRODUCER_PRIORITIES, true, "producer priorities");
@@ -295,6 +298,9 @@ public class SiriToGtfsRealtimeMain {
       Set<String> monitoringErrors = new HashSet<String>(
           Arrays.asList(values.split(",")));
       _service.setMonitoringErrorsForVehiclePositions(monitoringErrors);
+    }
+    if (cli.hasOption(ARG_LAYOVER_STRATEGY)) {
+      _service.setLayoverStrategy(ELayoverStrategy.valueOf(cli.getOptionValue(ARG_LAYOVER_STRATEGY)));
     }
     if (cli.hasOption(ARG_LOG_RAW_XML)) {
       String value = cli.getOptionValue(ARG_LOG_RAW_XML);

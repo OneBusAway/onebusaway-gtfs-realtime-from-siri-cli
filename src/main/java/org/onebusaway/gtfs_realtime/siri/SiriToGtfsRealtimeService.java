@@ -35,6 +35,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.xml.datatype.Duration;
 
+import org.onebusaway.siri.OneBusAwayVehicleActivity;
 import org.onebusaway.siri.core.SiriChannelInfo;
 import org.onebusaway.siri.core.SiriClient;
 import org.onebusaway.siri.core.SiriClientRequest;
@@ -48,6 +49,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.org.siri.siri.EntryQualifierStructure;
+import uk.org.siri.siri.ExtensionsStructure;
 import uk.org.siri.siri.FramedVehicleJourneyRefStructure;
 import uk.org.siri.siri.LocationStructure;
 import uk.org.siri.siri.MonitoredCallStructure;
@@ -139,6 +141,12 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
       add(MONITORING_ERROR_NOMINALLY_LOCATED);
     }
   };
+  
+  /**
+   * For vehicles marked as in a layover location, the strategy we use for
+   * optionally modifying the GTFS-realtime output for these vehicles.
+   */
+  private ELayoverStrategy _layoverStrategy = ELayoverStrategy.NO_CHANGE;
 
   /**
    * The count of how many trip updates have been excluded due to monitoring
@@ -155,6 +163,8 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
   private volatile int _tripUpdateCount = 0;
 
   private volatile int _vehiclePositionCount = 0;
+  
+  private volatile long _tripsInLayover = 0;
 
   private GtfsRealtimeMutableProvider _gtfsRealtimeProvider;
 
@@ -244,6 +254,10 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
       Set<String> monitoringErrors) {
     _monitoringErrorsForVehiclePositions = monitoringErrors;
   }
+  
+  public void setLayoverStrategy(ELayoverStrategy layoverStrategy) {
+    _layoverStrategy = layoverStrategy;
+  }
 
   @PostConstruct
   public void start() throws Exception {
@@ -279,6 +293,7 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
     status.put(prefix + "tripUpdateCount", Integer.toString(_tripUpdateCount));
     status.put(prefix + "vehiclePositionCount",
         Integer.toString(_vehiclePositionCount));
+    status.put(prefix + "tripsInLayover", Long.toString(_tripsInLayover));
   }
 
   public void processDeliveries(List<Delivery> deliveries) throws IOException {
@@ -502,6 +517,19 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
       if (delayDuration == null)
         continue;
       int delayInSeconds = (int) (delayDuration.getTimeInMillis(durationOffset) / 1000);
+      
+      if (isInLayover(activity)) {
+        ++_tripsInLayover;
+        switch (_layoverStrategy) {
+          case PRUNE:
+            return;
+          case ON_TIME:
+            delayInSeconds = 0;
+            break;
+          case NO_CHANGE:
+          break;
+        }
+      }
 
       TripUpdate.Builder tripUpdate = TripUpdate.newBuilder();
 
@@ -749,6 +777,15 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
       }
     }
     return false;
+  }
+
+  private boolean isInLayover(VehicleActivityStructure activity) {
+    ExtensionsStructure extensions = activity.getExtensions();
+    if (extensions == null || extensions.getAny() == null || !(extensions.getAny() instanceof OneBusAwayVehicleActivity)) {
+      return false;
+    }
+    OneBusAwayVehicleActivity obaActivity = (OneBusAwayVehicleActivity) extensions.getAny();
+    return obaActivity.isLayover();
   }
 
   private TripDescriptor getMonitoredVehicleJourneyAsTripDescriptor(
