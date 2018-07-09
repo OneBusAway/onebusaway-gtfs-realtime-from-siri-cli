@@ -236,7 +236,7 @@ public class SiriToGtfsRealtimeServiceTest {
 
     ArgumentCaptor<Runnable> writeTaskCaptor = ArgumentCaptor.forClass(Runnable.class);
     Mockito.verify(_executor).scheduleAtFixedRate(writeTaskCaptor.capture(),
-        Mockito.eq(0L), Mockito.anyInt(), Mockito.eq(TimeUnit.SECONDS));
+        Mockito.eq(0L), Mockito.anyLong(), Mockito.eq(TimeUnit.SECONDS));
 
     ArgumentCaptor<SiriServiceDeliveryHandler> handlerCaptor = ArgumentCaptor.forClass(SiriServiceDeliveryHandler.class);
     Mockito.verify(_client).addServiceDeliveryHandler(handlerCaptor.capture());
@@ -376,7 +376,7 @@ public class SiriToGtfsRealtimeServiceTest {
 
     ArgumentCaptor<Runnable> writeTaskCaptor = ArgumentCaptor.forClass(Runnable.class);
     Mockito.verify(_executor).scheduleAtFixedRate(writeTaskCaptor.capture(),
-        Mockito.eq(0L), Mockito.anyInt(), Mockito.eq(TimeUnit.SECONDS));
+        Mockito.eq(0L), Mockito.anyLong(), Mockito.eq(TimeUnit.SECONDS));
 
     ArgumentCaptor<SiriServiceDeliveryHandler> handlerCaptor = ArgumentCaptor.forClass(SiriServiceDeliveryHandler.class);
     Mockito.verify(_client).addServiceDeliveryHandler(handlerCaptor.capture());
@@ -467,7 +467,7 @@ public class SiriToGtfsRealtimeServiceTest {
 
     ArgumentCaptor<Runnable> writeTaskCaptor = ArgumentCaptor.forClass(Runnable.class);
     Mockito.verify(_executor).scheduleAtFixedRate(writeTaskCaptor.capture(),
-        Mockito.eq(0L), Mockito.anyInt(), Mockito.eq(TimeUnit.SECONDS));
+        Mockito.eq(0L), Mockito.anyLong(), Mockito.eq(TimeUnit.SECONDS));
 
     ArgumentCaptor<SiriServiceDeliveryHandler> handlerCaptor = ArgumentCaptor.forClass(SiriServiceDeliveryHandler.class);
     Mockito.verify(_client).addServiceDeliveryHandler(handlerCaptor.capture());
@@ -567,7 +567,7 @@ public class SiriToGtfsRealtimeServiceTest {
 
     ArgumentCaptor<Runnable> writeTaskCaptor = ArgumentCaptor.forClass(Runnable.class);
     Mockito.verify(_executor).scheduleAtFixedRate(writeTaskCaptor.capture(),
-        Mockito.eq(0L), Mockito.anyInt(), Mockito.eq(TimeUnit.SECONDS));
+        Mockito.eq(0L), Mockito.anyLong(), Mockito.eq(TimeUnit.SECONDS));
 
     ArgumentCaptor<SiriServiceDeliveryHandler> handlerCaptor = ArgumentCaptor.forClass(SiriServiceDeliveryHandler.class);
     Mockito.verify(_client).addServiceDeliveryHandler(handlerCaptor.capture());

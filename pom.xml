@@ -12,8 +12,8 @@
   <url>https://github.com/OneBusAway/onebusaway-gtfs-realtime-from-siri-cli/wiki/</url>
   
   <properties>
-    <onebusaway_siri_version>1.0.7-SNAPSHOT</onebusaway_siri_version>
-    <gtfs_realtime_api_version>1.1.0</gtfs_realtime_api_version>
+    <onebusaway_siri_version>1.0.7</onebusaway_siri_version>
+    <gtfs_realtime_api_version>1.2.9</gtfs_realtime_api_version>
   </properties>
 
   <repositories>
@@ -51,7 +51,7 @@
         <dependency>
       <groupId>org.onebusaway</groupId>
       <artifactId>onebusaway-siri-api-v13</artifactId>
-      <version>1.0.2-SNAPSHOT</version>
+      <version>1.0.2</version>
     </dependency>
     <dependency>
       <groupId>org.onebusaway</groupId>
@@ -67,24 +67,28 @@
     <dependency>
       <groupId>org.onebusaway</groupId>
       <artifactId>onebusaway-cli</artifactId>
-      <version>1.0.1</version>
+      <version>1.0.2</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
-      <version>1.5.6</version>
+      <version>1.7.25</version>
     </dependency>
-
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.25</version>
+    </dependency>
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.8.1</version>
+      <version>4.12</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
-      <version>1.8.0</version>
+      <version>2.19.0</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -125,6 +129,11 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.owasp</groupId>
+        <artifactId>dependency-check-maven</artifactId>
+        <version>3.2.1</version>
       </plugin>
     </plugins>
   </build>
