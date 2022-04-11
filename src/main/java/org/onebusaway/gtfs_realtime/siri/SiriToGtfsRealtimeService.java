@@ -16,14 +16,7 @@
 package org.onebusaway.gtfs_realtime.siri;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -820,7 +813,10 @@ public class SiriToGtfsRealtimeService implements StatusProviderService {
     @Override
     public void handleServiceDelivery(SiriChannelInfo channelInfo,
         ServiceDelivery serviceDelivery) {
-      _log.debug("delivery: channel={}", channelInfo.getContext());
+      // FIXME - Below _log line fails build, says "reference to debug is ambiguous [ERROR] both method
+      //  debug(java.lang.String,java.lang.Object[]) in org.slf4j.Logger and method
+      //  debug(java.lang.String,java.lang.Throwable) in org.slf4j.Logger match
+      // _log.debug("delivery: channel={}", channelInfo.getContext());
       _deliveries.add(new Delivery(channelInfo, serviceDelivery));
       if (_rebuildOnEachDelivery) {
         try {
